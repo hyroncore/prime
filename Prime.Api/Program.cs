@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using Prime.Api.Data;
 using Prime.Api.Services;
 
@@ -21,20 +22,8 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
 }
 
-// Support Railway's DATABASE_URL environment variable
-var databaseUrl = builder.Configuration["DATABASE_URL"];
-var connectionString = databaseUrl ?? builder.Configuration.GetConnectionString("PrimeDb")
-    ?? throw new InvalidOperationException("Connection string 'PrimeDb' not found. Set PostgreSQL connection string in configuration or provide DATABASE_URL environment variable.");
-
-// Convert Railway's DATABASE_URL to Npgsql connection string if needed
-if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgres"))
-{
-    // Railway provides: postgres://user:pass@host:port/db
-    // Convert to: Host=host;Port=port;Database=db;Username=user;Password=pass
-    var uri = new Uri(databaseUrl.Replace("postgres://", "postgresql://"));
-    var userInfo = uri.UserInfo.Split(':');
-    connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
-}
+// Build connection string from DATABASE_URL (Render) or appsettings.json
+string connectionString = BuildConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<PrimeDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -106,3 +95,52 @@ app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+static string BuildConnectionString(IConfiguration config)
+{
+    // Check multiple possible environment variable names (Render, Railway, etc.)
+    var databaseUrl = config["DATABASE_URL"]
+                     ?? config["POSTGRES_URL"]
+                     ?? config["POSTGRESQL_URL"]
+                     ?? config["PGDATABASE_URL"]
+                     ?? config.GetConnectionString("PrimeDb");
+
+    if (string.IsNullOrEmpty(databaseUrl))
+    {
+        throw new InvalidOperationException("No database connection string found. Set DATABASE_URL environment variable or ConnectionStrings:PrimeDb in appsettings.json");
+    }
+
+    // If it's already a proper Npgsql connection string (contains Host=), use as-is
+    if (databaseUrl.Contains("Host=") || databaseUrl.Contains("Server="))
+    {
+        return databaseUrl;
+    }
+
+    // Parse postgres:// or postgresql:// URL format (Render, Railway, Heroku, etc.)
+    try
+    {
+        var url = databaseUrl.StartsWith("postgres://") ? databaseUrl.Replace("postgres://", "postgresql://") : databaseUrl;
+        if (!url.StartsWith("postgresql://"))
+        {
+            url = "postgresql://" + url;
+        }
+
+        var uri = new Uri(url);
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.Port > 0 ? uri.Port : 5432,
+            Database = uri.AbsolutePath.TrimStart('/'),
+            Username = uri.UserInfo.Split(':')[0],
+            Password = uri.UserInfo.Split(':').Length > 1 ? uri.UserInfo.Split(':')[1] : "",
+            SslMode = SslMode.Require,
+            TrustServerCertificate = true
+        };
+        return builder.ConnectionString;
+    }
+    catch
+    {
+        // If parsing fails, return as-is and let Npgsql handle it
+        return databaseUrl;
+    }
+}
