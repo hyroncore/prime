@@ -8,17 +8,31 @@ using Prime.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("PrimeDb")
-    ?? "Data Source=prime.db";
+// Support Railway's DATABASE_URL environment variable
+var databaseUrl = builder.Configuration["DATABASE_URL"];
+var connectionString = databaseUrl ?? builder.Configuration.GetConnectionString("PrimeDb")
+    ?? throw new InvalidOperationException("Connection string 'PrimeDb' not found. Set PostgreSQL connection string in configuration or provide DATABASE_URL environment variable.");
+
+// Convert Railway's DATABASE_URL to Npgsql connection string if needed
+if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgres"))
+{
+    // Railway provides: postgres://user:pass@host:port/db
+    // Convert to: Host=host;Port=port;Database=db;Username=user;Password=pass
+    var uri = new Uri(databaseUrl.Replace("postgres://", "postgresql://"));
+    var userInfo = uri.UserInfo.Split(':');
+    connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+}
 
 builder.Services.AddDbContext<PrimeDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
+builder.Services.AddHealthChecks();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured");
@@ -71,6 +85,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers().RequireAuthorization();
+app.MapHealthChecks("/api/health");
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
