@@ -1,9 +1,10 @@
 services:
   - type: web
     name: prime-api
-    env: docker
-    dockerfilePath: ./Prime.Api/Dockerfile
-    plan: starter
+    env: dotnet
+    buildCommand: dotnet publish Prime.Api/Prime.Api.csproj -c Release -o /app/publish
+    startCommand: dotnet Prime.Api.dll
+    plan: free
     region: oregon
     healthCheckPath: /api/health
     envVars:
@@ -25,7 +26,7 @@ databases:
   - name: prime-db
     databaseName: prime
     user: prime_user
-    plan: starter
+    plan: free
     region: oregon
     # PostgreSQL version 16
     postgresMajorVersion: 16
