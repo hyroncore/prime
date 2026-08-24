@@ -7,22 +7,19 @@ using Microsoft.IdentityModel.Tokens;
 using Prime.Api.Data;
 using Prime.Api.Services;
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+var builder = WebApplication.CreateBuilder(args);
+
+// Disable config file watching to avoid inotify limits on Render free tier
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();
+
+if (builder.Environment.IsDevelopment())
 {
-    Args = args,
-    // Disable default config file watching to avoid inotify limits on Render free tier
-    ConfigurationBuilder = (ctx, builder) =>
-    {
-        builder.Sources.Clear();
-        builder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-               .AddJsonFile($"appsettings.{ctx.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-               .AddEnvironmentVariables();
-        if (ctx.HostingEnvironment.IsDevelopment())
-        {
-            builder.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
-        }
-    }
-});
+    builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
+}
 
 // Support Railway's DATABASE_URL environment variable
 var databaseUrl = builder.Configuration["DATABASE_URL"];
