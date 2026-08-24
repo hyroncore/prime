@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Dubai';
+  src: url('/fonts/Dubai-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Dubai';
+  src: url('/fonts/Dubai-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Dubai';
+  src: url('/fonts/Dubai-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Dubai';
+  src: url('/fonts/Dubai-Bold.woff2') format('woff2');
+  font-weight: 600 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Cascadia Code';
+  src: url('/fonts/CascadiaCode.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 213 32% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 213 32% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 32% 14%;
+
+    --primary: 212 29% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 30% 94%;
+    --secondary-foreground: 212 29% 36%;
+
+    --muted: 210 25% 95%;
+    --muted-foreground: 213 15% 45%;
+
+    --accent: 210 25% 94%;
+    --accent-foreground: 212 29% 36%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 212 18% 86%;
+    --border-hover: 212 22% 78%;
+    --input: 212 18% 86%;
+    --ring: 212 29% 36%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 213 32% 10%;
+    --foreground: 210 25% 96%;
+
+    --card: 213 30% 13%;
+    --card-foreground: 210 25% 96%;
+
+    --popover: 213 30% 13%;
+    --popover-foreground: 210 25% 96%;
+
+    --primary: 212 35% 62%;
+    --primary-foreground: 213 32% 10%;
+
+    --secondary: 213 25% 20%;
+    --secondary-foreground: 210 25% 96%;
+
+    --muted: 213 25% 20%;
+    --muted-foreground: 212 15% 65%;
+
+    --accent: 213 25% 20%;
+    --accent-foreground: 210 25% 96%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 213 22% 24%;
+    --border-hover: 213 22% 34%;
+    --input: 213 22% 24%;
+    --ring: 212 35% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  html {
+    font-family: 'Dubai', 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    direction: rtl;
+    text-align: right;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
