@@ -8,19 +8,25 @@ using Npgsql;
 using Prime.Api.Data;
 using Prime.Api.Services;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Disable config file watching to avoid inotify limits on Render free tier
-builder.Configuration.Sources.Clear();
-builder.Configuration
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-    .AddEnvironmentVariables();
-
-if (builder.Environment.IsDevelopment())
+var options = new WebApplicationOptions
 {
-    builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
-}
+    Args = args,
+    // Disable config file watching to avoid inotify limits on Render free tier
+    ConfigurationBuilder = (ctx, configBuilder) =>
+    {
+        configBuilder.Sources.Clear();
+        configBuilder
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{ctx.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables();
+        if (ctx.HostingEnvironment.IsDevelopment())
+        {
+            configBuilder.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
+        }
+    }
+};
+
+var builder = WebApplication.CreateBuilder(options);
 
 // Build connection string from DATABASE_URL (Render) or appsettings.json
 string connectionString = BuildConnectionString(builder.Configuration);
