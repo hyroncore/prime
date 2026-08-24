@@ -4,10 +4,10 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["Prime.Api.csproj", "."]
-RUN dotnet restore "Prime.Api.csproj"
+COPY ["Prime.Api/Prime.Api.csproj", "Prime.Api/"]
+RUN dotnet restore "Prime.Api/Prime.Api.csproj"
 COPY . .
-WORKDIR "/src"
+WORKDIR "/src/Prime.Api"
 RUN dotnet build "Prime.Api.csproj" -c Release -o /app/build
 
 FROM build AS publish
