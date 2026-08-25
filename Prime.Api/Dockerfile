@@ -20,6 +20,7 @@ RUN npm ci
 RUN npm run build
 
 FROM build AS publish
+WORKDIR /src/Prime.Api
 RUN dotnet publish "Prime.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
