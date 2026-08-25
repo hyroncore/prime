@@ -23,6 +23,9 @@ RUN npm ci
 COPY ["prime-web/", "./"]
 RUN npm run build
 
+# Copy frontend build to a location accessible by publish stage
+RUN cp -r /src/prime-web/dist /app/frontend-dist
+
 FROM build AS publish
 WORKDIR /src/Prime.Api
 RUN dotnet publish "Prime.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
@@ -30,8 +33,8 @@ RUN dotnet publish "Prime.Api.csproj" -c Release -o /app/publish /p:UseAppHost=f
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-COPY --from=build /src/prime-web/dist ./wwwroot
-# Use PORT environment variable from Render, default to 8080
+# Copy frontend build to wwwroot
+COPY --from=build /app/frontend-dist ./wwwroot
 ENV ASPNETCORE_URLS=http://+:${PORT:-8080}
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENTRYPOINT ["dotnet", "Prime.Api.dll"]
