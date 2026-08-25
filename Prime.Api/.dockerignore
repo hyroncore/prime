@@ -1,0 +1,22 @@
+# Docker ignore file for Prime.Api
+**/bin
+**/obj
+**/publish
+**/node_modules
+**/dist
+**/.git
+**/.gitignore
+**/.dockerignore
+**/*.md
+**/*.log
+**/appsettings.Development.json
+**/appsettings.*.json
+!appsettings.json
+!appsettings.Production.json
+tests/
+*.sln
+*.user
+.vs/
+.vscode/
+*.swp
+*.suo
