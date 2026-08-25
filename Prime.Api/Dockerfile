@@ -14,9 +14,11 @@ COPY . .
 WORKDIR "/src/Prime.Api"
 RUN dotnet build "Prime.Api.csproj" -c Release -o /app/build
 
-# Build frontend
+# Build frontend - copy package files first for better caching
 WORKDIR /src/prime-web
+COPY ["prime-web/package.json", "prime-web/package-lock.json*", "./"]
 RUN npm ci
+COPY ["prime-web/", "./"]
 RUN npm run build
 
 FROM build AS publish
