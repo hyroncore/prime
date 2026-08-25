@@ -54,13 +54,14 @@ public class RequisitionsController : ControllerBase
     {
         var query = ApplyFilters(_db.PurchaseRequisitions.AsQueryable(), search, plantId, sectorCode, status);
         var now = DateTime.UtcNow;
+        var nowDate = now.Date;
 
-        var total = await query.CountAsync();
-        var open = await query.CountAsync(r => OpenStatuses.Contains(r.Status));
-        var overdue = await query.CountAsync(r =>
-            OpenStatuses.Contains(r.Status) && r.DueDate < now.Date);
-        var won = await query.CountAsync(r => r.Status == nameof(RequisitionStatus.WON));
-        var lost = await query.CountAsync(r => r.Status == nameof(RequisitionStatus.LOST));
+        var requisitions = await query.ToListAsync();
+        var total = requisitions.Count;
+        var open = requisitions.Count(r => OpenStatuses.Contains(r.Status));
+        var overdue = requisitions.Count(r => OpenStatuses.Contains(r.Status) && r.DueDate < nowDate);
+        var won = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));
+        var lost = requisitions.Count(r => r.Status == nameof(RequisitionStatus.LOST));
 
         var decided = won + lost;
         var winRate = decided == 0 ? 0 : Math.Round((double)won / decided * 100, 1);
