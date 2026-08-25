@@ -4,6 +4,10 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
+
+# Install Node.js for frontend build
+RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+
 COPY ["Prime.Api/Prime.Api.csproj", "Prime.Api/"]
 RUN dotnet restore "Prime.Api/Prime.Api.csproj"
 COPY . .
