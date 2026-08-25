@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,22 +12,24 @@ using Prime.Api.Services;
 var options = new WebApplicationOptions
 {
     Args = args,
-    // Disable config file watching to avoid inotify limits on Render free tier
-    ConfigureConfiguration = (ctx, configBuilder) =>
-    {
-        configBuilder.Sources.Clear();
-        configBuilder
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-            .AddJsonFile($"appsettings.{ctx.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-            .AddEnvironmentVariables();
-        if (ctx.HostingEnvironment.IsDevelopment())
-        {
-            configBuilder.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
-        }
-    }
+    // Use temp directory as content root to avoid default config file watching (inotify limit on Render free tier)
+    ContentRootPath = Path.GetTempPath()
 };
 
 var builder = WebApplication.CreateBuilder(options);
+
+// Disable config file watching by manually adding config sources with reloadOnChange: false
+builder.Configuration.Sources.Clear();
+var actualContentRoot = AppContext.BaseDirectory;
+builder.Configuration
+    .AddJsonFile(Path.Combine(actualContentRoot, "appsettings.json"), optional: false, reloadOnChange: false)
+    .AddJsonFile(Path.Combine(actualContentRoot, $"appsettings.{builder.Environment.EnvironmentName}.json"), optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
+}
 
 // Build connection string from DATABASE_URL (Render) or appsettings.json
 string connectionString = BuildConnectionString(builder.Configuration);
