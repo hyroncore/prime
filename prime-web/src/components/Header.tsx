@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Moon, Sun, Bell, LogOut, User } from 'lucide-react'
 import { NotificationsPopover } from '@/components/NotificationsPopover'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
