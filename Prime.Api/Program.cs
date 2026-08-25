@@ -9,21 +9,13 @@ using Npgsql;
 using Prime.Api.Data;
 using Prime.Api.Services;
 
-var options = new WebApplicationOptions
-{
-    Args = args,
-    // Use temp directory as content root to avoid default config file watching (inotify limit on Render free tier)
-    ContentRootPath = Path.GetTempPath()
-};
+var builder = WebApplication.CreateBuilder(args);
 
-var builder = WebApplication.CreateBuilder(options);
-
-// Disable config file watching by manually adding config sources with reloadOnChange: false
+// Disable config file watching to avoid inotify limits on Render free tier
 builder.Configuration.Sources.Clear();
-var actualContentRoot = AppContext.BaseDirectory;
 builder.Configuration
-    .AddJsonFile(Path.Combine(actualContentRoot, "appsettings.json"), optional: false, reloadOnChange: false)
-    .AddJsonFile(Path.Combine(actualContentRoot, $"appsettings.{builder.Environment.EnvironmentName}.json"), optional: true, reloadOnChange: false)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables();
 
 if (builder.Environment.IsDevelopment())
