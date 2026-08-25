@@ -94,19 +94,6 @@ export function Header() {
     )
   }
 
-  const isDark = themeIsDark(theme)
-
-  const toggleTheme = () => {
-    const next = isDark ? 'light' : 'dark'
-    setTheme(next)
-    applyTheme(next)
-  }
-
-  const handleLogout = () => {
-    logout()
-    window.location.assign('/login')
-  }
-
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-border bg-background/95 px-6 py-3 backdrop-blur-sm print:hidden">
       {/* System name - left side */}
