@@ -10,12 +10,18 @@ COPY . .
 WORKDIR "/src/Prime.Api"
 RUN dotnet build "Prime.Api.csproj" -c Release -o /app/build
 
+# Build frontend
+WORKDIR /src/prime-web
+RUN npm ci
+RUN npm run build
+
 FROM build AS publish
 RUN dotnet publish "Prime.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=build /src/prime-web/dist ./wwwroot
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENTRYPOINT ["dotnet", "Prime.Api.dll"]
