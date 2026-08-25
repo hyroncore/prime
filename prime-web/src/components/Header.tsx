@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Moon, Sun, Bell, LogOut, Key, User } from 'lucide-react'
-import { ChangePasswordDialog } from '@/components/ChangePasswordDialog'
 import { NotificationsPopover } from '@/components/NotificationsPopover'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -13,6 +12,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, themeIsDark, useSettingsStore } from '@/store/useSettingsStore'
+import { api } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 
 function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -25,8 +26,44 @@ export function Header() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  const { toast } = useToast()
 
   const isDark = themeIsDark(theme)
+
+  const toggleTheme = () => {
+    const next = isDark ? 'light' : 'dark'
+    setTheme(next)
+    applyTheme(next)
+  }
+
+  const handleLogout = () => {
+    logout()
+    window.location.assign('/login')
+  }
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword) return
+    if (newPassword.length < 8) {
+      toast({ title: 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف', className: 'border-red-200 bg-red-50 text-red-800' })
+      return
+    }
+    setPasswordLoading(true)
+    try {
+      await api.auth.changePassword({ currentPassword, newPassword })
+      toast({ title: 'تم تغيير كلمة المرور بنجاح', className: 'border-green-200 bg-green-50 text-green-800' })
+      setPasswordDialogOpen(false)
+      setCurrentPassword('')
+      setNewPassword('')
+    } catch (error: any) {
+      toast({ title: error.response?.data?.message || 'حدث خطأ أثناء تغيير كلمة المرور', className: 'border-red-200 bg-red-50 text-red-800' })
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
 
   const toggleTheme = () => {
     const next = isDark ? 'light' : 'dark'
@@ -124,6 +161,56 @@ export function Header() {
           </DropdownMenu>
         )}
       </div>
-    </header>
+
+      {/* Change Password Dialog */}
+      {passwordDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPasswordDialogOpen(false)}>
+          <div className="bg-background rounded-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">تغيير كلمة المرور</h3>
+              <button onClick={() => setPasswordDialogOpen(false)} className="text-muted-foreground hover:text-foreground">
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">كلمة المرور الحالية</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="كلمة المرور الحالية"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">كلمة المرور الجديدة</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="8 أحرف على الأقل"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setPasswordDialogOpen(false)}
+                  className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={passwordLoading}
+                  className="flex-1 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {passwordLoading ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
   )
 }
