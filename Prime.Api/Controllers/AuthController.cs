@@ -30,37 +30,46 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        try
         {
-            return BadRequest(new { message = "يرجى إدخال اسم المستخدم وكلمة المرور" });
-        }
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new { message = "يرجى إدخال اسم المستخدم وكلمة المرور" });
+            }
 
-        var username = request.Username.Trim();
-        if (_throttle.LockedUntil(username) is { } until)
+            var username = request.Username.Trim();
+            if (_throttle.LockedUntil(username) is { } until)
+            {
+                var minutes = Math.Max(1, (int)Math.Ceiling((until - DateTimeOffset.UtcNow).TotalMinutes));
+                return StatusCode(
+                    StatusCodes.Status429TooManyRequests,
+                    new { message = $"تم إيقاف المحاولات مؤقتاً — حاول مرة أخرى بعد {minutes} دقيقة" });
+            }
+
+            var user = await _db.Users.SingleOrDefaultAsync(u => u.Username == username);
+            var valid = user is not null
+                && user.IsActive
+                && _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password)
+                    != PasswordVerificationResult.Failed;
+
+            if (user is null || !valid)
+            {
+                _throttle.RegisterFailure(username);
+                return Unauthorized(new { message = "اسم المستخدم أو كلمة المرور غير صحيحة" });
+            }
+
+            _throttle.Reset(username);
+            user.LastLoginAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var token = _tokens.CreateToken(user);
+            return Ok(new LoginResponse(token, ToDto(user)));
+        }
+        catch (Exception ex)
         {
-            var minutes = Math.Max(1, (int)Math.Ceiling((until - DateTimeOffset.UtcNow).TotalMinutes));
-            return StatusCode(
-                StatusCodes.Status429TooManyRequests,
-                new { message = $"تم إيقاف المحاولات مؤقتاً — حاول مرة أخرى بعد {minutes} دقيقة" });
+            // Log the actual error for debugging
+            return StatusCode(500, new { message = "حدث خطأ أثناء تسجيل الدخول", error = ex.Message });
         }
-
-        var user = await _db.Users.SingleOrDefaultAsync(u => u.Username == username);
-        var valid = user is not null
-            && user.IsActive
-            && _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password)
-                != PasswordVerificationResult.Failed;
-
-        if (user is null || !valid)
-        {
-            _throttle.RegisterFailure(username);
-            return Unauthorized(new { message = "اسم المستخدم أو كلمة المرور غير صحيحة" });
-        }
-
-        _throttle.Reset(username);
-        user.LastLoginAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        return Ok(new LoginResponse(_tokens.CreateToken(user), ToDto(user)));
     }
 
     [HttpGet("me")]
