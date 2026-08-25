@@ -12,7 +12,7 @@ var options = new WebApplicationOptions
 {
     Args = args,
     // Disable config file watching to avoid inotify limits on Render free tier
-    ConfigurationBuilder = (ctx, configBuilder) =>
+    ConfigureConfiguration = (ctx, configBuilder) =>
     {
         configBuilder.Sources.Clear();
         configBuilder
