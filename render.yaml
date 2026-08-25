@@ -1,9 +1,8 @@
 services:
   - type: web
     name: prime-api
-    env: dotnet
-    buildCommand: dotnet publish Prime.Api/Prime.Api.csproj -c Release -o /app/publish
-    startCommand: dotnet Prime.Api.dll
+    env: docker
+    dockerfilePath: ./Prime.Api/Dockerfile
     plan: free
     region: oregon
     healthCheckPath: /api/health
@@ -12,7 +11,6 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:8080
-      # DATABASE_URL will be automatically provided by Render when you link the PostgreSQL database
       - key: Jwt__Key
         sync: false
       - key: Jwt__Issuer
@@ -28,5 +26,4 @@ databases:
     user: prime_user
     plan: free
     region: oregon
-    # PostgreSQL version 16
     postgresMajorVersion: 16
