@@ -78,7 +78,6 @@ export function Header() {
             onClick={() => window.location.href = '/account'}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted/50"
           >
-            <User className="h-4 w-4" />
             الحساب
           </DropdownMenuItem>
           <DropdownMenuSeparator className="my-1" />

@@ -116,11 +116,13 @@ export function MetricAvatar({ username, size = 'md', className, showInitials = 
   const sizeMap = { sm: 32, md: 40, lg: 48, xl: 64 }
   const sizeValue = typeof size === 'number' ? size : sizeMap[size]
 
-  const { palette, shapeType, complexity, rotation } = getAvatarConfig(username)
-  const initials = username.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U'
+  // Handle empty username
+  const effectiveUsername = username || 'User'
+  const { palette, shapeType, complexity, rotation } = getAvatarConfig(effectiveUsername)
+  const initials = effectiveUsername.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U'
 
   return (
-    <div className={cn('flex items-center justify-center', className)}>
+    <div className={cn('flex items-center justify-center relative', className)}>
       <ShapeComponent
         shapeType={shapeType}
         palette={palette}
