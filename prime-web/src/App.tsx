@@ -16,6 +16,7 @@ import { RequisitionsPage } from '@/pages/RequisitionsPage'
 import { RequisitionPrintPage } from '@/pages/RequisitionPrintPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { UsersPage } from '@/pages/UsersPage'
+import { AccountPage } from '@/pages/AccountPage'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, useSettingsStore } from '@/store/useSettingsStore'
@@ -161,6 +162,7 @@ export default function App() {
                     </RequireAdmin>
                   }
                 />
+                <Route path="/account" element={<AccountPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
