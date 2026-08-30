@@ -219,19 +219,17 @@ public class DashboardController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<AdminDashboardStatsDto>> GetAdminStats()
     {
-        var openStatuses = new[]
-        {
-            nameof(RequisitionStatus.NEW),
-            nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING)
-        };
+        const string newStatus = "NEW";
+        const string reviewStatus = "REVIEW";
+        const string processingStatus = "PROCESSING";
+        const string wonStatus = "WON";
 
         var totalUsers = await _db.Users.CountAsync();
         var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
         var totalClients = await _db.Clients.CountAsync();
         
         var activeClientIds = await _db.PurchaseRequisitions
-            .Where(r => openStatuses.Contains(r.Status))
+            .Where(r => r.Status == newStatus || r.Status == reviewStatus || r.Status == processingStatus)
             .Select(r => r.Plant!.ClientId)
             .Distinct()
             .ToListAsync();
@@ -249,16 +247,21 @@ public class DashboardController : ControllerBase
                 u.LastLoginAt))
             .ToListAsync();
 
-        var topClients = await _db.PurchaseRequisitions
-            .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
+        // Materialize requisitions first, then group in memory (small dataset)
+        var requisitions = await _db.PurchaseRequisitions
+            .Select(r => new { r.Plant!.ClientId, r.Plant.Client!.Name, r.Status })
+            .ToListAsync();
+
+        var topClients = requisitions
+            .GroupBy(r => new { r.ClientId, r.Name })
             .Select(g => new TopClientDto(
                 g.Key.ClientId,
                 g.Key.Name,
                 g.Count(),
-                g.Count(r => r.Status == nameof(RequisitionStatus.WON))))
+                g.Count(r => r.Status == wonStatus)))
             .OrderByDescending(c => c.TotalRequisitions)
             .Take(5)
-            .ToListAsync();
+            .ToList();
 
         return Ok(new AdminDashboardStatsDto(
             totalUsers,
