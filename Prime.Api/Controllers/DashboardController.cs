@@ -14,19 +14,23 @@ namespace Prime.Api.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly PrimeDbContext _db;
+    private readonly ILogger<DashboardController> _logger;
 
-    public DashboardController(PrimeDbContext db)
+    public DashboardController(PrimeDbContext db, ILogger<DashboardController> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     [HttpGet("stats")]
     public async Task<ActionResult<DashboardStatsDto>> GetStats()
     {
-        var requisitions = await _db.PurchaseRequisitions
-            .Include(r => r.Plant)!
-                .ThenInclude(p => p!.Client)
-            .ToListAsync();
+        try
+        {
+            var requisitions = await _db.PurchaseRequisitions
+                .Include(r => r.Plant)!
+                    .ThenInclude(p => p!.Client)
+                .ToListAsync();
 
         var openStatuses = new[]
         {
@@ -139,6 +143,12 @@ public class DashboardController : ControllerBase
             activeClients,
             recentUsers,
             topClients));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching dashboard stats");
+            return StatusCode(500, new { message = "حدث خطأ أثناء جلب إحصائيات لوحة التحكم", error = ex.Message });
+        }
     }
 
     [HttpGet("user-stats")]
