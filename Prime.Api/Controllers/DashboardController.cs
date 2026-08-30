@@ -98,7 +98,14 @@ public class DashboardController : ControllerBase
         var totalUsers = await _db.Users.CountAsync();
         var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
         var totalClients = await _db.Clients.CountAsync();
-        var activeClients = await _db.Clients.CountAsync(c => c.Plants.Any(p => p.Requisitions.Any(r => openStatuses.Contains(r.Status))));
+        
+        // Use SQL-friendly query for active clients
+        var activeClientIds = await _db.PurchaseRequisitions
+            .Where(r => openStatuses.Contains(r.Status))
+            .Select(r => r.Plant!.ClientId)
+            .Distinct()
+            .ToListAsync();
+        var activeClients = activeClientIds.Count;
 
         var recentUsers = await _db.Users
             .OrderByDescending(u => u.CreatedAt)
@@ -112,12 +119,14 @@ public class DashboardController : ControllerBase
                 u.LastLoginAt))
             .ToListAsync();
 
-        var topClients = await _db.Clients
-            .Select(c => new TopClientDto(
-                c.Id,
-                c.Name,
-                c.Plants.SelectMany(p => p.Requisitions).Count(),
-                c.Plants.SelectMany(p => p.Requisitions).Count(r => r.Status == nameof(RequisitionStatus.WON))))
+        // Use SQL-friendly query for top clients
+        var topClients = await _db.PurchaseRequisitions
+            .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
+            .Select(g => new TopClientDto(
+                g.Key.ClientId,
+                g.Key.Name,
+                g.Count(),
+                g.Count(r => r.Status == nameof(RequisitionStatus.WON))))
             .OrderByDescending(c => c.TotalRequisitions)
             .Take(5)
             .ToListAsync();
