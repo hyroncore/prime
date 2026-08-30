@@ -283,12 +283,15 @@ export function UsersPage() {
       ) : (
         <>
           <Table>
+            <caption className="sr-only">قائمة المستخدمين — {sorted.length} مستخدم، صفحة {page} من {totalPages}</caption>
             <TableHeader>
               <TableRow className="border-b border-border hover:bg-transparent">
                 {COLUMNS.map((col, index) => (
                   <TableHead key={`${col.key}-${index}`} className="px-5">
                     <button
                       onClick={() => handleSort(col.key)}
+                      aria-label={`ترتيب حسب ${col.label}`}
+                      aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className="inline-flex items-center cursor-pointer text-[11px] font-bold text-muted-foreground tracking-wide hover:text-foreground"
                     >
                       {col.label}

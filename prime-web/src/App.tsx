@@ -1,29 +1,38 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { ClientFormDialog } from '@/components/ClientFormDialog'
 import { Header } from '@/components/Header'
 import { PlantFormDialog } from '@/components/PlantFormDialog'
 import { RequisitionDrawer } from '@/components/RequisitionDrawer'
 import { Sidebar } from '@/components/Sidebar'
 import { Toaster } from '@/components/ui/toaster'
-import { ClientsPage } from '@/pages/ClientsPage'
-import { DashboardRedirect } from '@/components/DashboardRedirect'
 import { LoginPage } from '@/pages/LoginPage'
-import { NewRequisitionPage } from '@/pages/NewRequisitionPage'
-import { PermissionMatrixPage } from '@/pages/PermissionMatrixPage'
-import { RequisitionDetailPage } from '@/pages/RequisitionDetailPage'
-import { RequisitionEditPage } from '@/pages/RequisitionEditPage'
-import { RequisitionsPage } from '@/pages/RequisitionsPage'
-import { RequisitionPrintPage } from '@/pages/RequisitionPrintPage'
-import { SettingsPage } from '@/pages/SettingsPage'
-import { UsersPage } from '@/pages/UsersPage'
-import { AccountPage } from '@/pages/AccountPage'
-import { AdminDashboardPage } from '@/pages/AdminDashboardPage'
-import { ManagerDashboardPage } from '@/pages/ManagerDashboardPage'
-import { UserDashboardPage } from '@/pages/UserDashboardPage'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, useSettingsStore } from '@/store/useSettingsStore'
+
+const DashboardRedirect = lazy(() => import('@/components/DashboardRedirect').then(m => ({ default: m.DashboardRedirect })))
+const UserDashboardPage = lazy(() => import('@/pages/UserDashboardPage').then(m => ({ default: m.UserDashboardPage })))
+const ManagerDashboardPage = lazy(() => import('@/pages/ManagerDashboardPage').then(m => ({ default: m.ManagerDashboardPage })))
+const AdminDashboardPage = lazy(() => import('@/pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })))
+const RequisitionsPage = lazy(() => import('@/pages/RequisitionsPage').then(m => ({ default: m.RequisitionsPage })))
+const NewRequisitionPage = lazy(() => import('@/pages/NewRequisitionPage').then(m => ({ default: m.NewRequisitionPage })))
+const RequisitionDetailPage = lazy(() => import('@/pages/RequisitionDetailPage').then(m => ({ default: m.RequisitionDetailPage })))
+const RequisitionEditPage = lazy(() => import('@/pages/RequisitionEditPage').then(m => ({ default: m.RequisitionEditPage })))
+const RequisitionPrintPage = lazy(() => import('@/pages/RequisitionPrintPage').then(m => ({ default: m.RequisitionPrintPage })))
+const ClientsPage = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })))
+const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m.UsersPage })))
+const AccountPage = lazy(() => import('@/pages/AccountPage').then(m => ({ default: m.AccountPage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const PermissionMatrixPage = lazy(() => import('@/pages/PermissionMatrixPage').then(m => ({ default: m.PermissionMatrixPage })))
+
+function PageSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/40">
+      <p className="text-sm font-bold text-muted-foreground">جاري التحميل...</p>
+    </div>
+  )
+}
 
 function ThemeEngine() {
   const theme = useSettingsStore((s) => s.theme)
@@ -151,21 +160,21 @@ export default function App() {
               <GlobalErrorBanner />
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardRedirect />} />
-                <Route path="/dashboard/user" element={<UserDashboardPage />} />
-                <Route path="/dashboard/manager" element={<ManagerDashboardPage />} />
-                <Route path="/dashboard/admin" element={<AdminDashboardPage />} />
-                <Route path="/requisitions" element={<RequisitionsPage />} />
-                <Route path="/requisitions/new" element={<NewRequisitionPage />} />
-                <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
-                <Route path="/requisitions/:id/edit" element={<RequisitionEditPage />} />
-                <Route path="/requisitions/:id/print" element={<RequisitionPrintPage />} />
-                <Route path="/clients" element={<ClientsPage />} />
+                <Route path="/dashboard" element={<Suspense fallback={<PageSkeleton />}> <DashboardRedirect /> </Suspense>} />
+                <Route path="/dashboard/user" element={<Suspense fallback={<PageSkeleton />}> <UserDashboardPage /> </Suspense>} />
+                <Route path="/dashboard/manager" element={<Suspense fallback={<PageSkeleton />}> <ManagerDashboardPage /> </Suspense>} />
+                <Route path="/dashboard/admin" element={<Suspense fallback={<PageSkeleton />}> <AdminDashboardPage /> </Suspense>} />
+                <Route path="/requisitions" element={<Suspense fallback={<PageSkeleton />}> <RequisitionsPage /> </Suspense>} />
+                <Route path="/requisitions/new" element={<Suspense fallback={<PageSkeleton />}> <NewRequisitionPage /> </Suspense>} />
+                <Route path="/requisitions/:id" element={<Suspense fallback={<PageSkeleton />}> <RequisitionDetailPage /> </Suspense>} />
+                <Route path="/requisitions/:id/edit" element={<Suspense fallback={<PageSkeleton />}> <RequisitionEditPage /> </Suspense>} />
+                <Route path="/requisitions/:id/print" element={<Suspense fallback={<PageSkeleton />}> <RequisitionPrintPage /> </Suspense>} />
+                <Route path="/clients" element={<Suspense fallback={<PageSkeleton />}> <ClientsPage /> </Suspense>} />
                 <Route
                   path="/users"
                   element={
                     <RequireAdmin>
-                      <UsersPage />
+                      <Suspense fallback={<PageSkeleton />}> <UsersPage /> </Suspense>
                     </RequireAdmin>
                   }
                 />
@@ -173,12 +182,12 @@ export default function App() {
                   path="/permissions"
                   element={
                     <RequireAdmin>
-                      <PermissionMatrixPage />
+                      <Suspense fallback={<PageSkeleton />}> <PermissionMatrixPage /> </Suspense>
                     </RequireAdmin>
                   }
                 />
-                <Route path="/account" element={<AccountPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/account" element={<Suspense fallback={<PageSkeleton />}> <AccountPage /> </Suspense>} />
+                <Route path="/settings" element={<Suspense fallback={<PageSkeleton />}> <SettingsPage /> </Suspense>} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>

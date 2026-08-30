@@ -108,6 +108,20 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Cache-Control: no-store for auth-sensitive pages (prevents caching on shared devices)
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+    var isAuthRoute = path.StartsWith("/login") || path.StartsWith("/account") || path.StartsWith("/api/auth");
+    if (isAuthRoute)
+    {
+        context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["Expires"] = "0";
+    }
+    await next();
+});
+
 app.MapControllers().RequireAuthorization();
 
 app.UseDefaultFiles();
