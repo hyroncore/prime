@@ -223,10 +223,18 @@ public class DashboardController : ControllerBase
         const string reviewStatus = "REVIEW";
         const string processingStatus = "PROCESSING";
         const string wonStatus = "WON";
+        const string adminRole = "Admin";
+        const string managerRole = "Manager";
+        const string userRole = "User";
 
         var totalUsers = await _db.Users.CountAsync();
         var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
+        var inactiveUsers = totalUsers - activeUsers;
+        var adminCount = await _db.Users.CountAsync(u => u.Role == adminRole);
+        var managerCount = await _db.Users.CountAsync(u => u.Role == managerRole);
+        var userCount = await _db.Users.CountAsync(u => u.Role == userRole);
         var totalClients = await _db.Clients.CountAsync();
+        var totalPlants = await _db.Plants.CountAsync();
         
         var activeClientIds = await _db.PurchaseRequisitions
             .Where(r => r.Status == newStatus || r.Status == reviewStatus || r.Status == processingStatus)
@@ -258,7 +266,7 @@ public class DashboardController : ControllerBase
                 g.Key.ClientId,
                 g.Key.Name,
                 g.Count(),
-                g.Count(r => r.Status == wonStatus)))
+                g.Count(r => r.Status == "WON")))
             .OrderByDescending(c => c.TotalRequisitions)
             .Take(5)
             .ToList();
@@ -266,8 +274,13 @@ public class DashboardController : ControllerBase
         return Ok(new AdminDashboardStatsDto(
             totalUsers,
             activeUsers,
+            inactiveUsers,
+            adminCount,
+            managerCount,
+            userCount,
             totalClients,
             activeClients,
+            totalPlants,
             recentUsers,
             topClients));
     }

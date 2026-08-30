@@ -27,7 +27,14 @@ if (builder.Environment.IsDevelopment())
 string connectionString = BuildConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<PrimeDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorCodesToAdd: null);
+        npgsqlOptions.CommandTimeout(60);
+    }));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -93,6 +100,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<DatabaseBackupService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 builder.Services.AddHostedService<ArchivalService>();
 builder.Services.AddHostedService<NotificationScheduler>();

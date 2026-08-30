@@ -139,8 +139,13 @@ export interface TopClientDto {
 export interface AdminDashboardStatsDto {
   totalUsers: number
   activeUsers: number
+  inactiveUsers: number
+  adminCount: number
+  managerCount: number
+  userCount: number
   totalClients: number
   activeClients: number
+  totalPlants: number
   recentUsers: RecentUserDto[]
   topClients: TopClientDto[]
 }
@@ -292,6 +297,52 @@ export interface ManagerDashboardStatsDto {
   teamPerformance: TeamMemberStatsDto[]
   pendingReviews: UrgentRequisitionDto[]
   pendingSignOffs: PendingSignOffDto[]
+}
+
+export interface ManagerDashboardStatsDto {
+  teamVolume: number
+  pendingReview: number
+  pendingSignOff: number
+  teamWinRate: number
+  wonCount: number
+  lostCount: number
+  teamPerformance: TeamMemberStatsDto[]
+  pendingReviews: UrgentRequisitionDto[]
+  pendingSignOffs: PendingSignOffDto[]
+}
+
+export interface TableCountsDto {
+  users: number
+  activeUsers: number
+  clients: number
+  plants: number
+  requisitions: number
+  auditLogs: number
+  attachments: number
+  notifications: number
+  permissions: number
+}
+
+export interface SystemHealthDto {
+  status: string
+  databaseLatencyMs: number
+  databaseError: string | null
+  databaseProvider: string
+  databaseName: string
+  serverUptime: string
+  environment: string
+  tableCounts: TableCountsDto
+  lastBackupAt: string | null
+  lastBackupNote: string | null
+  checkedAt: string
+}
+
+export interface BackupHistoryDto {
+  id: number
+  createdAt: string
+  createdById: number
+  notes: string
+  fileSize: number | null
 }
 
 export type UserRole = 'Admin' | 'Manager' | 'User'

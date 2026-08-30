@@ -133,7 +133,43 @@ public record ManagerDashboardStatsDto(
 public record AdminDashboardStatsDto(
     int TotalUsers,
     int ActiveUsers,
+    int InactiveUsers,
+    int AdminCount,
+    int ManagerCount,
+    int UserCount,
     int TotalClients,
     int ActiveClients,
+    int TotalPlants,
     List<RecentUserDto> RecentUsers,
     List<TopClientDto> TopClients);
+
+public record TableCountsDto(
+    int Users,
+    int ActiveUsers,
+    int Clients,
+    int Plants,
+    int Requisitions,
+    int AuditLogs,
+    int Attachments,
+    int Notifications,
+    int Permissions);
+
+public record SystemHealthDto(
+    string Status,
+    long DatabaseLatencyMs,
+    string? DatabaseError,
+    string DatabaseProvider,
+    string DatabaseName,
+    string ServerUptime,
+    string Environment,
+    TableCountsDto TableCounts,
+    DateTime? LastBackupAt,
+    string? LastBackupNote,
+    DateTime CheckedAt);
+
+public record BackupHistoryDto(
+    int Id,
+    DateTime CreatedAt,
+    int CreatedById,
+    string Notes,
+    long? FileSize);

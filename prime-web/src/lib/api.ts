@@ -1,6 +1,7 @@
 import type {
   AdminDashboardStatsDto,
   AttachmentDto,
+  BackupHistoryDto,
   ChangePasswordRequest,
   ClientDto,
   CreateClientRequest,
@@ -17,6 +18,7 @@ import type {
   RequisitionStatsDto,
   ResetPasswordRequest,
   SectorDto,
+  SystemHealthDto,
   UpdateClientRequest,
   UpdatePlantRequest,
   UpdatePermissionsRequest,
@@ -48,9 +50,10 @@ function clearSession() {
   window.location.assign('/login')
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit & { responseType?: 'blob' }): Promise<T> {
   const isFormData = options?.body instanceof FormData
   const token = getToken()
+  const isBlob = options?.responseType === 'blob'
   const headers: HeadersInit = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options?.headers ?? {}),
@@ -77,6 +80,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (res.status === 204) return undefined as T
+  if (isBlob) return (await res.blob()) as T
   return (await res.json()) as T
 }
 
@@ -123,6 +127,12 @@ export const api = {
     userStats: () => request<UserDashboardStatsDto>('/dashboard/user-stats'),
     managerStats: () => request<ManagerDashboardStatsDto>('/dashboard/manager-stats'),
     adminStats: () => request<AdminDashboardStatsDto>('/dashboard/admin-stats'),
+  },
+
+  admin: {
+    health: () => request<SystemHealthDto>('/admin/system/health'),
+    exportBackup: () => request<Blob>('/admin/backup/export', { method: 'POST', responseType: 'blob' }),
+    backupHistory: () => request<BackupHistoryDto[]>('/admin/backup/history'),
   },
 
   requisitions: {
