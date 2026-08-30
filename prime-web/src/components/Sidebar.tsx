@@ -2,18 +2,36 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
-const SECTIONS = [
-  { to: '/dashboard', label: 'لوحة التحكم' },
-  { to: '/requisitions', label: 'طلبات الشراء' },
+const USER_SECTIONS = [
+  { to: '/dashboard/user', label: 'لوحة تحكمي' },
+  { to: '/requisitions', label: 'طلباتي' },
   { to: '/clients', label: 'العملاء' },
   { to: '/settings', label: 'الإعدادات' },
 ]
 
+const MANAGER_SECTIONS = [
+  { to: '/dashboard/manager', label: 'لوحة تحكم الفريق' },
+  { to: '/requisitions', label: 'طلبات الفريق' },
+  { to: '/clients', label: 'العملاء' },
+  { to: '/settings', label: 'الإعدادات' },
+]
+
+const ADMIN_SECTIONS = [
+  { to: '/dashboard/admin', label: 'لوحة تحكم النظام' },
+  { to: '/requisitions', label: 'جميع الطلبات' },
+  { to: '/clients', label: 'العملاء' },
+  { to: '/users', label: 'المستخدمون' },
+  { to: '/settings', label: 'الإعدادات' },
+]
+
 export function Sidebar() {
-  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
-  const sections = isAdmin
-    ? [...SECTIONS.slice(0, 3), { to: '/users', label: 'المستخدمون' }, ...SECTIONS.slice(3)]
-    : SECTIONS
+  const role = useAuthStore((s) => s.user?.role)
+
+  const sections = role === 'Admin'
+    ? ADMIN_SECTIONS
+    : role === 'Manager'
+    ? MANAGER_SECTIONS
+    : USER_SECTIONS
 
   return (
     <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-l border-border bg-background print:hidden">

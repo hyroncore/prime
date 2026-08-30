@@ -7,7 +7,7 @@ import { RequisitionDrawer } from '@/components/RequisitionDrawer'
 import { Sidebar } from '@/components/Sidebar'
 import { Toaster } from '@/components/ui/toaster'
 import { ClientsPage } from '@/pages/ClientsPage'
-import { DashboardPage } from '@/pages/DashboardPage'
+import { DashboardRedirect } from '@/components/DashboardRedirect'
 import { LoginPage } from '@/pages/LoginPage'
 import { NewRequisitionPage } from '@/pages/NewRequisitionPage'
 import { RequisitionDetailPage } from '@/pages/RequisitionDetailPage'
@@ -17,6 +17,9 @@ import { RequisitionPrintPage } from '@/pages/RequisitionPrintPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { UsersPage } from '@/pages/UsersPage'
 import { AccountPage } from '@/pages/AccountPage'
+import { UserDashboardPage } from '@/pages/UserDashboardPage'
+import { ManagerDashboardPage } from '@/pages/ManagerDashboardPage'
+import { AdminDashboardPage } from '@/pages/AdminDashboardPage'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, useSettingsStore } from '@/store/useSettingsStore'
@@ -147,7 +150,10 @@ export default function App() {
               <GlobalErrorBanner />
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<DashboardRedirect />} />
+                <Route path="/dashboard/user" element={<UserDashboardPage />} />
+                <Route path="/dashboard/manager" element={<ManagerDashboardPage />} />
+                <Route path="/dashboard/admin" element={<AdminDashboardPage />} />
                 <Route path="/requisitions" element={<RequisitionsPage />} />
                 <Route path="/requisitions/new" element={<NewRequisitionPage />} />
                 <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />

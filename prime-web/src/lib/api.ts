@@ -8,6 +8,7 @@ import type {
   DashboardStatsDto,
   LoginRequest,
   LoginResponse,
+  ManagerDashboardStatsDto,
   NotificationsListDto,
   PlantDetailDto,
   RequisitionDto,
@@ -18,6 +19,7 @@ import type {
   UpdatePlantRequest,
   UpdateRequisitionRequest,
   UpdateUserRequest,
+  UserDashboardStatsDto,
   UserDto,
 } from './types'
 
@@ -115,6 +117,8 @@ export const api = {
 
   dashboard: {
     stats: () => request<DashboardStatsDto>('/dashboard/stats'),
+    userStats: () => request<UserDashboardStatsDto>('/dashboard/user-stats'),
+    managerStats: () => request<ManagerDashboardStatsDto>('/dashboard/manager-stats'),
   },
 
   requisitions: {

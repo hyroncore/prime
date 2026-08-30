@@ -4,11 +4,13 @@ import { SECTORS } from '@/lib/format'
 import type {
   ClientDto,
   DashboardStatsDto,
+  ManagerDashboardStatsDto,
   NotificationDto,
   PlantDetailDto,
   RequisitionDto,
   RequisitionStatsDto,
   SectorDto,
+  UserDashboardStatsDto,
 } from '@/lib/types'
 
 interface RequisitionFilters {
@@ -24,6 +26,8 @@ interface AppState {
 
   stats: DashboardStatsDto | null
   kpiStats: RequisitionStatsDto | null
+  userStats: UserDashboardStatsDto | null
+  managerStats: ManagerDashboardStatsDto | null
   requisitions: RequisitionDto[]
   clients: ClientDto[]
   plants: PlantDetailDto[]
@@ -62,6 +66,11 @@ interface AppState {
   setFilter: (patch: Partial<RequisitionFilters>) => void
   resetFilters: () => void
 
+  setLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
+  setUserStats: (stats: UserDashboardStatsDto) => void
+  setManagerStats: (stats: ManagerDashboardStatsDto) => void
+
   createRequisition: (body: Parameters<typeof api.requisitions.create>[0]) => Promise<RequisitionDto>
   updateRequisition: (id: number, body: Parameters<typeof api.requisitions.update>[1]) => Promise<void>
   deleteRequisition: (id: number) => Promise<void>
@@ -93,6 +102,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   stats: null,
   kpiStats: null,
+  userStats: null,
+  managerStats: null,
   requisitions: [],
   clients: [],
   plants: [],
@@ -225,6 +236,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ filters: { ...initialFilters } })
     void get().fetchRequisitions()
   },
+
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error }),
+
+  setUserStats: (stats) => set({ userStats: stats }),
+  setManagerStats: (stats) => set({ managerStats: stats }),
 
   fetchNotifications: async () => {
     try {

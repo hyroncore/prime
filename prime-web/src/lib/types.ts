@@ -192,7 +192,51 @@ export interface NotificationsListDto {
   unreadCount: number
 }
 
-export type UserRole = 'Admin' | 'User'
+export interface UserDashboardStatsDto {
+  myActiveRequisitions: number
+  myDrafts: number
+  awaitingReview: number
+  awaitingSignOff: number
+  reviseCount: number
+  overdueCount: number
+  wonCount: number
+  lostCount: number
+  winRate: number
+  actionRequired: UrgentRequisitionDto[]
+}
+
+export interface PendingSignOffDto {
+  id: number
+  identifier: string
+  title: string
+  plantName: string
+  clientName: string
+  submittedAt: string
+}
+
+export interface TeamMemberStatsDto {
+  userId: number
+  displayName: string
+  openRequisitions: number
+  reviseCount: number
+  submittedCount: number
+  wonCount: number
+  winRate: number
+}
+
+export interface ManagerDashboardStatsDto {
+  teamVolume: number
+  pendingReview: number
+  pendingSignOff: number
+  teamWinRate: number
+  wonCount: number
+  lostCount: number
+  teamPerformance: TeamMemberStatsDto[]
+  pendingReviews: UrgentRequisitionDto[]
+  pendingSignOffs: PendingSignOffDto[]
+}
+
+export type UserRole = 'Admin' | 'Manager' | 'User'
 
 export interface UserDto {
   id: number
