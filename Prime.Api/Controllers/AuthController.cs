@@ -18,12 +18,14 @@ public class AuthController : ControllerBase
     private readonly TokenService _tokens;
     private readonly LoginThrottle _throttle;
     private readonly IPasswordHasher<AppUser> _hasher = new PasswordHasher<AppUser>();
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(PrimeDbContext db, TokenService tokens, LoginThrottle throttle)
+    public AuthController(PrimeDbContext db, TokenService tokens, LoginThrottle throttle, ILogger<AuthController> logger)
     {
         _db = db;
         _tokens = tokens;
         _throttle = throttle;
+        _logger = logger;
     }
 
     [AllowAnonymous]
@@ -32,6 +34,8 @@ public class AuthController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("Login attempt for username: {Username}", request.Username);
+            
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             {
                 return BadRequest(new { message = "يرجى إدخال اسم المستخدم وكلمة المرور" });
@@ -47,12 +51,23 @@ public class AuthController : ControllerBase
             }
 
             var user = await _db.Users.SingleOrDefaultAsync(u => u.Username == username);
-            var valid = user is not null
-                && user.IsActive
-                && _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password)
-                    != PasswordVerificationResult.Failed;
+            _logger.LogInformation("User found: {UserFound}", user != null);
+            
+            if (user == null)
+            {
+                _throttle.RegisterFailure(username);
+                return Unauthorized(new { message = "اسم المستخدم أو كلمة المرور غير صحيحة" });
+            }
 
-            if (user is null || !valid)
+            _logger.LogInformation("User: Id={Id}, Username={Username}, IsActive={IsActive}, Role={Role}", 
+                user.Id, user.Username, user.IsActive, user.Role);
+
+            var verifyResult = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+            _logger.LogInformation("Password verification result: {Result}", verifyResult);
+            
+            var valid = user.IsActive && verifyResult != PasswordVerificationResult.Failed;
+
+            if (!valid)
             {
                 _throttle.RegisterFailure(username);
                 return Unauthorized(new { message = "اسم المستخدم أو كلمة المرور غير صحيحة" });
@@ -63,12 +78,13 @@ public class AuthController : ControllerBase
             await _db.SaveChangesAsync();
 
             var token = _tokens.CreateToken(user);
+            _logger.LogInformation("Login successful for user: {Username}", user.Username);
             return Ok(new LoginResponse(token, ToDto(user)));
         }
         catch (Exception ex)
         {
-            // Log the actual error for debugging
-            return StatusCode(500, new { message = "حدث خطأ أثناء تسجيل الدخول", error = ex.Message });
+            _logger.LogError(ex, "Login failed for username: {Username}", request.Username);
+            return StatusCode(500, new { message = "حدث خطأ أثناء تسجيل الدخول", error = ex.Message, stackTrace = ex.StackTrace });
         }
     }
 
