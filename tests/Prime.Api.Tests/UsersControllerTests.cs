@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
@@ -20,6 +22,7 @@ public class UsersControllerTests : IDisposable
     private readonly UsersController _controller;
     private readonly AuthController _authController;
     private readonly PasswordHasher<AppUser> _hasher = new();
+    private readonly ILogger<AuthController> _logger;
 
     public UsersControllerTests()
     {
@@ -40,7 +43,8 @@ public class UsersControllerTests : IDisposable
                 ["Jwt:Audience"] = "Prime.Web",
             })
             .Build();
-        _authController = new AuthController(_db, new TokenService(config, TimeProvider.System), new LoginThrottle(TimeProvider.System));
+        _logger = Mock.Of<ILogger<AuthController>>();
+        _authController = new AuthController(_db, new TokenService(config, TimeProvider.System), new LoginThrottle(TimeProvider.System), _logger);
     }
 
     public void Dispose()

@@ -120,6 +120,22 @@ export interface ClientBreakdownDto {
   won: number
 }
 
+export interface RecentUserDto {
+  id: number
+  username: string
+  displayName: string
+  role: string
+  isActive: boolean
+  lastLoginAt: string | null
+}
+
+export interface TopClientDto {
+  id: number
+  name: string
+  totalRequisitions: number
+  wonCount: number
+}
+
 export interface DashboardStatsDto {
   openCount: number
   newCount: number
@@ -135,6 +151,12 @@ export interface DashboardStatsDto {
   overdueRequisitions: UrgentRequisitionDto[]
   sectorBreakdown: SectorBreakdownDto[]
   clientBreakdown: ClientBreakdownDto[]
+  totalUsers: number
+  activeUsers: number
+  totalClients: number
+  activeClients: number
+  recentUsers: RecentUserDto[]
+  topClients: TopClientDto[]
 }
 
 export interface CreateRequisitionRequest {

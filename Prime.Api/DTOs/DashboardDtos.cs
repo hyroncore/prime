@@ -41,6 +41,55 @@ public record ClientDto(
     int OpenRequisitions,
     int TotalWon);
 
+public record RecentUserDto(
+    int Id,
+    string Username,
+    string DisplayName,
+    string Role,
+    bool IsActive,
+    DateTime? LastLoginAt);
+
+public record TopClientDto(
+    int Id,
+    string Name,
+    int TotalRequisitions,
+    int WonCount);
+
+public record DashboardStatsDto(
+    int OpenCount,
+    int NewCount,
+    int ReviewCount,
+    int ProcessingCount,
+    int OverdueCount,
+    int SubmittedCount,
+    int WonCount,
+    int LostCount,
+    int DeclinedCount,
+    int TotalCount,
+    double WinRate,
+    List<UrgentRequisitionDto> OverdueRequisitions,
+    List<SectorBreakdownDto> SectorBreakdown,
+    List<ClientBreakdownDto> ClientBreakdown,
+    int TotalUsers,
+    int ActiveUsers,
+    int TotalClients,
+    int ActiveClients,
+    List<RecentUserDto> RecentUsers,
+    List<TopClientDto> TopClients);
+
+public record SectorBreakdownDto(
+    string SectorCode,
+    string SectorName,
+    int Total,
+    int Open);
+
+public record ClientBreakdownDto(
+    int ClientId,
+    string ClientName,
+    int Total,
+    int Open,
+    int Won);
+
 public record UserDashboardStatsDto(
     int MyActiveRequisitions,
     int MyDrafts,

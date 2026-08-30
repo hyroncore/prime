@@ -41,10 +41,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { formatRelativeTime } from '@/lib/format'
 import type { UserDto, UserRole } from '@/lib/types'
 import { useAuthStore } from '@/store/useAuthStore'
+import { api } from '@/lib/api'
+import type { PermissionMatrixDto, PermissionCellDto, PermissionDto } from '@/lib/types'
 
 type SortKey = 'username' | 'displayName' | 'role' | 'isActive' | 'lastLoginAt'
 type SortDir = 'asc' | 'desc' | null
@@ -58,6 +66,10 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 ]
 
 const PAGE_SIZE = 10
+
+type PermRole = 'Manager' | 'User'
+
+const ROLES_FOR_PERMISSIONS: PermRole[] = ['Manager', 'User']
 
 export function UsersPage() {
   const users = useAuthStore((s) => s.users)
@@ -101,8 +113,83 @@ export function UsersPage() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // Permission Matrix state
+  const [permMatrix, setPermMatrix] = useState<PermissionMatrixDto | null>(null)
+  const [permLoading, setPermLoading] = useState(false)
+  const [permActiveTab, setPermActiveTab] = useState<'Manager' | 'User'>('Manager')
+  const [permPendingChanges, setPermPendingChanges] = useState<Record<string, Record<number, boolean>>>({})
+
+  const fetchPermMatrix = async () => {
+    try {
+      setPermLoading(true)
+      const data = await api.permissions.matrix()
+      setPermMatrix(data)
+    } catch (e) {
+      console.error('Failed to load permission matrix:', e)
+    } finally {
+      setPermLoading(false)
+    }
+  }
+
+  const isPermGranted = (role: 'Manager' | 'User', permissionId: number): boolean => {
+    const roleRow = permMatrix?.roles.find(r => r.role === role)
+    const cell = roleRow?.permissions.find(p => p.permissionId === permissionId)
+    return cell?.isGranted ?? false
+  }
+
+  const togglePerm = (role: 'Manager' | 'User', permissionId: number, currentValue: boolean) => {
+    const newValue = !currentValue
+    setPermPendingChanges(prev => ({
+      ...prev,
+      [role]: { ...prev[role], [permissionId]: newValue }
+    }))
+  }
+
+  const hasPermPendingChanges = (role: 'Manager' | 'User') => {
+    const roleChanges = permPendingChanges[role]
+    return roleChanges && Object.keys(roleChanges).length > 0
+  }
+
+  const savePermRole = async (role: 'Manager' | 'User') => {
+    const roleChanges = permPendingChanges[role]
+    if (!roleChanges || Object.keys(roleChanges).length === 0) return
+
+    const permissions: PermissionCellDto[] = Object.entries(roleChanges).map(([permissionId, isGranted]) => ({
+      permissionId: Number(permissionId),
+      permissionKey: '',
+      isGranted
+    }))
+
+    try {
+      setPermLoading(true)
+      await api.permissions.updateRole(role, { permissions })
+      setPermPendingChanges(prev => {
+        const next = { ...prev }
+        delete next[role]
+        return next
+      })
+      const fresh = await api.permissions.matrix()
+      setPermMatrix(fresh)
+      const { toast } = useToast()
+      toast({
+        title: `تم حفظ صلاحيات ${role} بنجاح`,
+        className: 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/60 dark:text-green-300',
+      })
+    } catch (e) {
+      console.error('Failed to save permissions:', e)
+    } finally {
+      setPermLoading(false)
+    }
+  }
+
+  const getCategoryPermissions = (category: string): PermissionDto[] =>
+    permMatrix?.permissions.filter(p => p.category === category).sort((a, b) => a.key.localeCompare(b.key)) ?? []
+
+  const categories = [...new Set(permMatrix?.permissions.map(p => p.category) ?? [])].sort()
+
   useEffect(() => {
     void fetchUsers().finally(() => setLoading(false))
+    void fetchPermMatrix()
   }, [fetchUsers])
 
   const sorted = useMemo(() => {
@@ -267,22 +354,33 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {users.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-          <p className="text-base font-black text-foreground">لا يوجد مستخدمون بعد</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            أضف أول مستخدم للسماح بالدخول إلى النظام
-          </p>
-          <Button
-            onClick={openCreate}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-          >
-            + إضافة مستخدم
-          </Button>
-        </div>
-      ) : (
-        <>
-          <Table>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            المستخدمون
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            مصفوفة الصلاحيات
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="pt-6">
+          {users.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+              <p className="text-base font-black text-foreground">لا يوجد مستخدمون بعد</p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                أضف أول مستخدم للسماح بالدخول إلى النظام
+              </p>
+              <Button
+                onClick={openCreate}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+              >
+                + إضافة مستخدم
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Table>
             <caption className="sr-only">قائمة المستخدمين — {sorted.length} مستخدم، صفحة {page} من {totalPages}</caption>
             <TableHeader>
               <TableRow className="border-b border-border hover:bg-transparent">
@@ -415,6 +513,107 @@ export function UsersPage() {
           </div>
         </>
       )}
+        </TabsContent>
+
+        <TabsContent value="permissions" className="pt-6">
+          {permLoading && !permMatrix ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Skeleton className="h-8 w-64 rounded-lg mb-2" />
+                  <Skeleton className="h-4 w-96 rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded" />
+                ))}
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded" />
+                ))}
+              </div>
+            </div>
+          ) : permMatrix ? (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold">مصفوفة صلاحيات الأدوار</h2>
+                <p className="text-sm text-muted-foreground">
+                  إدارة صلاحيات مديري الفريق والمستخدمين — المسؤول يمتلك جميع الصلاحيات افتراضياً
+                </p>
+              </div>
+
+              <Tabs value={permActiveTab} onValueChange={(v: string) => setPermActiveTab(v as PermRole)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  {ROLES_FOR_PERMISSIONS.map(role => (
+                    <TabsTrigger key={role} value={role} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      {role}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {ROLES_FOR_PERMISSIONS.map(role => (
+                  <TabsContent key={role} value={role} className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold">صلاحية دور: {role}</h3>
+                      {hasPermPendingChanges(role) && (
+                        <Button
+                          onClick={() => savePermRole(role)}
+                          disabled={permLoading}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+                        >
+                          حفظ التغييرات
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="space-y-6">
+                      {categories.map(category => (
+                        <div key={category} className="space-y-3">
+                          <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
+                            {category}
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {getCategoryPermissions(category).map(perm => {
+                              const granted = isPermGranted(role, perm.id)
+                              const pending = permPendingChanges[role]?.[perm.id]
+                              const currentValue = pending !== undefined ? pending : granted
+                              return (
+                                <label
+                                  key={perm.id}
+                                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={currentValue}
+                                    onChange={() => togglePerm(role, perm.id, currentValue)}
+                                    disabled={permLoading}
+                                    id={`perm-${role}-${perm.id}`}
+                                    className="h-4 w-4 shrink-0 rounded border-input bg-background text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <Label htmlFor={`perm-${role}-${perm.id}`} className="font-medium text-sm cursor-pointer">
+                                      {perm.key}
+                                    </Label>
+                                    <p className="text-[11px] text-muted-foreground truncate">{perm.description}</p>
+                                  </div>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </>
+          ) : (
+            <p className="text-center text-muted-foreground py-10">تعذر تحميل مصفوفة الصلاحيات</p>
+          )}
+        </TabsContent>
+      </Tabs>
       <Dialog open={formOpen} onOpenChange={(o) => !o && setFormOpen(false)}>
         <DialogContent className="max-w-sm" dir="rtl">
           <DialogHeader>

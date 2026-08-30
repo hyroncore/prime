@@ -90,6 +90,34 @@ public class DashboardController : ControllerBase
             .OrderByDescending(c => c.Total)
             .ToList();
 
+        // Admin-specific stats
+        var totalUsers = await _db.Users.CountAsync();
+        var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
+        var totalClients = await _db.Clients.CountAsync();
+        var activeClients = await _db.Clients.CountAsync(c => c.Plants.Any(p => p.Requisitions.Any(r => openStatuses.Contains(r.Status))));
+
+        var recentUsers = await _db.Users
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(5)
+            .Select(u => new RecentUserDto(
+                u.Id,
+                u.Username,
+                u.DisplayName,
+                u.Role,
+                u.IsActive,
+                u.LastLoginAt))
+            .ToListAsync();
+
+        var topClients = await _db.Clients
+            .Select(c => new TopClientDto(
+                c.Id,
+                c.Name,
+                c.Plants.SelectMany(p => p.Requisitions).Count(),
+                c.Plants.SelectMany(p => p.Requisitions).Count(r => r.Status == nameof(RequisitionStatus.WON))))
+            .OrderByDescending(c => c.TotalRequisitions)
+            .Take(5)
+            .ToListAsync();
+
         return Ok(new DashboardStatsDto(
             openCount,
             newCount,
@@ -104,7 +132,13 @@ public class DashboardController : ControllerBase
             winRate,
             overdue,
             sectorBreakdown,
-            clientBreakdown));
+            clientBreakdown,
+            totalUsers,
+            activeUsers,
+            totalClients,
+            activeClients,
+            recentUsers,
+            topClients));
     }
 
     [HttpGet("user-stats")]

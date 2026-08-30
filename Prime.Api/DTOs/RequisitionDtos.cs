@@ -47,32 +47,3 @@ public record RequisitionStatsDto(
     int WonCount,
     int LostCount,
     double WinRate);
-
-public record SectorBreakdownDto(
-    string SectorCode,
-    string SectorName,
-    int Total,
-    int Open);
-
-public record ClientBreakdownDto(
-    int ClientId,
-    string ClientName,
-    int Total,
-    int Open,
-    int Won);
-
-public record DashboardStatsDto(
-    int OpenCount,
-    int NewCount,
-    int ReviewCount,
-    int ProcessingCount,
-    int OverdueCount,
-    int SubmittedCount,
-    int WonCount,
-    int LostCount,
-    int DeclinedCount,
-    int TotalCount,
-    double WinRate,
-    List<UrgentRequisitionDto> OverdueRequisitions,
-    List<SectorBreakdownDto> SectorBreakdown,
-    List<ClientBreakdownDto> ClientBreakdown);

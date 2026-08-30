@@ -15,4 +15,6 @@ public class Plant
 
     [Required]
     public string ShortCode { get; set; } = string.Empty;
+
+    public List<PurchaseRequisition> Requisitions { get; set; } = new();
 }

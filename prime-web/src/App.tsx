@@ -24,7 +24,6 @@ const ClientsPage = lazy(() => import('@/pages/ClientsPage').then(m => ({ defaul
 const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m.UsersPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
-const PermissionMatrixPage = lazy(() => import('@/pages/PermissionMatrixPage').then(m => ({ default: m.PermissionMatrixPage })))
 
 function PageSkeleton() {
   return (
@@ -175,14 +174,6 @@ export default function App() {
                   element={
                     <RequireAdmin>
                       <Suspense fallback={<PageSkeleton />}> <UsersPage /> </Suspense>
-                    </RequireAdmin>
-                  }
-                />
-                <Route
-                  path="/permissions"
-                  element={
-                    <RequireAdmin>
-                      <Suspense fallback={<PageSkeleton />}> <PermissionMatrixPage /> </Suspense>
                     </RequireAdmin>
                   }
                 />

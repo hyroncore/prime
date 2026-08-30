@@ -3,26 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StatusBadge } from '@/components/StatusBadge'
-import { formatDateShort, getUrgencyMeta, STATUS_META } from '@/lib/format'
-import type { RequisitionStatus } from '@/lib/types'
 import { useAppStore } from '@/store/useAppStore'
-
-const FUNNEL_ORDER: RequisitionStatus[] = [
-  'NEW',
-  'REVIEW',
-  'PROCESSING',
-  'SUBMITTED',
-  'WON',
-  'LOST',
-  'DECLINED',
-]
+import { formatRelativeTime } from '@/lib/format'
 
 export function AdminDashboardPage() {
   const navigate = useNavigate()
   const stats = useAppStore((s) => s.stats)
   const loading = useAppStore((s) => s.loading)
-  const openDrawer = useAppStore((s) => s.openDrawer)
   const fetchAll = useAppStore((s) => s.fetchAll)
 
   useEffect(() => {
@@ -37,7 +24,6 @@ export function AdminDashboardPage() {
             <Skeleton className="h-8 w-48 rounded-lg mb-2" />
             <Skeleton className="h-4 w-64 rounded-lg" />
           </div>
-          <Skeleton className="h-9 w-28 rounded-lg" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -48,66 +34,11 @@ export function AdminDashboardPage() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-          <div className="xl:col-span-7">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 py-4 border-t border-border first:border-t-0">
-                <Skeleton className="h-4 w-28 rounded" />
-                <Skeleton className="h-4 flex-1 rounded" />
-                <Skeleton className="h-4 w-20 rounded" />
-              </div>
-            ))}
-          </div>
-          <div className="xl:col-span-5 space-y-10">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i}>
-                <Skeleton className="h-3 w-28 rounded mb-2" />
-                <Skeleton className="h-1 w-full rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     )
   }
 
   if (!stats) return null
-
-  const funnelCounts: Record<RequisitionStatus, number> = {
-    NEW: stats.newCount,
-    REVIEW: stats.reviewCount,
-    PROCESSING: stats.processingCount,
-    SUBMITTED: stats.submittedCount,
-    WON: stats.wonCount,
-    LOST: stats.lostCount,
-    DECLINED: stats.declinedCount,
-  }
-
-  const funnelTotal = FUNNEL_ORDER.reduce((sum, s) => sum + funnelCounts[s], 0)
-
-  const kpis = [
-    {
-      title: 'إجمالي الطلبات',
-      value: String(stats.totalCount),
-      subtitle: 'جميع طلبات النظام',
-    },
-    {
-      title: 'الطلبات المفتوحة',
-      value: String(stats.openCount),
-      subtitle: 'جديدة، مراجعة، معالجة',
-    },
-    {
-      title: 'الطلبات المتأخرة',
-      value: String(stats.overdueCount),
-      subtitle: 'فتحت ومرّ تاريخ استحقاقها',
-      accent: stats.overdueCount > 0,
-    },
-    {
-      title: 'نسبة الفوز الكلية',
-      value: `${stats.winRate}%`,
-      subtitle: `${stats.wonCount} فائزة / ${stats.lostCount} خاسرة`,
-    },
-  ]
 
   return (
     <div dir="rtl" className="space-y-10">
@@ -115,7 +46,7 @@ export function AdminDashboardPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المدير العام</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            نظرة شاملة على النظام بأكمله — إحصائيات، مستخدمين، وصلاحيات
+            نظرة شاملة على صحة النظام — مستخدمين، عملاء، وإعدادات
           </p>
         </div>
         <div className="flex gap-2">
@@ -134,267 +65,173 @@ export function AdminDashboardPage() {
         </div>
       </div>
 
-      {stats.totalCount === 0 ? (
-        <Card className="flex flex-col items-center justify-center gap-4 p-16 text-center">
-          <p className="text-base font-black">لا توجد طلبات شراء في النظام</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            بمجرد إنشاء أول طلب، ستظهر هنا جميع المؤشرات والتحليلات
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+        <div className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0">
+          <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+            إجمالي المستخدمين
           </p>
-          <Button
-            onClick={() => navigate('/requisitions/new')}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-          >
-            + طلب شراء جديد
-          </Button>
-        </Card>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
-            {kpis.map((stat, i) => (
-              <div
-                key={i}
-                className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0"
-              >
-                <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                  {stat.title}
-                </p>
-                <p
-                  className={
-                    'mt-2 text-4xl font-black tabular-nums tracking-tight' +
-                    (stat.accent ? ' text-red-700 dark:text-red-400' : '')
-                  }
-                >
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-                  {stat.subtitle}
-                </p>
-              </div>
-            ))}
-          </div>
+          <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
+            {stats.totalUsers ?? 0}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            حسابات مسجلة في النظام
+          </p>
+        </div>
+        <div className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0">
+          <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+            المستخدمون النشطون
+          </p>
+          <p className="mt-2 text-4xl font-black tabular-nums tracking-tight text-green-700 dark:text-green-400">
+            {stats.activeUsers ?? 0}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            لديهم صلاحية دخول فعالة
+          </p>
+        </div>
+        <div className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0">
+          <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+            إجمالي العملاء
+          </p>
+          <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
+            {stats.totalClients ?? 0}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            عملاء مسجلون في النظام
+          </p>
+        </div>
+        <div className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0">
+          <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+            العملاء النشطون
+          </p>
+          <p className="mt-2 text-4xl font-black tabular-nums tracking-tight text-blue-700 dark:text-blue-400">
+            {stats.activeClients ?? 0}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            لديهم طلبات أو مصانع نشطة
+          </p>
+        </div>
+      </div>
 
-          <div>
-            <p className="mb-2 text-[11px] font-bold text-muted-foreground tracking-wide">
-              توزيع الحالات (النظام كاملاً)
-            </p>
-            <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-              {funnelTotal > 0 &&
-                FUNNEL_ORDER.map((status) => {
-                  const count = funnelCounts[status]
-                  if (count === 0) return null
-                  return (
-                    <div
-                      key={status}
-                      title={`${STATUS_META[status].label}: ${count}`}
-                      className={`${STATUS_META[status].badgeClass} h-full`}
-                      style={{ width: `${(count / funnelTotal) * 100}%` }}
-                    />
-                  )
-                })}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+        <div className="xl:col-span-7">
+          <Card>
+            <div className="p-4 border-b border-border">
+              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+                المستخدمون مؤخراً
+              </p>
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-              {FUNNEL_ORDER.map((status) => {
-                const count = funnelCounts[status]
-                return (
-                  <div key={status} className="flex items-center gap-1.5">
-                    <span
-                      className={`inline-block h-2 w-2 rounded-full ${STATUS_META[status].badgeClass}`}
-                    />
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      {STATUS_META[status].label}
-                    </span>
-                    <span className="text-[11px] font-black tabular-nums">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-            <div className="xl:col-span-7">
-              <div className="mb-3 flex items-baseline justify-between">
-                <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                  الطلبات المتأخرة (النظام كاملاً)
-                </p>
-                <span className="text-[11px] text-muted-foreground">
-                  مرتبة حسب تاريخ الاستحقاق — أعلى 10
-                </span>
-              </div>
-              <div className="divide-y divide-border">
-                {stats.overdueRequisitions && stats.overdueRequisitions.length > 0 ? (
-                  stats.overdueRequisitions.map((req) => {
-                    const urgency = getUrgencyMeta(req.daysLeft)
-                    const overdue = req.daysLeft < 0
-                    return (
-                      <div
-                        key={req.id}
-                        onClick={() => openDrawer(req.id)}
-                        className="flex items-center gap-4 -mx-4 cursor-pointer rounded-lg px-4 py-3.5 transition-colors hover:bg-muted/40"
-                      >
-                        <span
-                          dir="ltr"
-                          className="w-28 shrink-0 font-mono text-sm font-bold text-primary"
-                        >
-                          {req.identifier}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{req.title}</p>
-                          <p className="truncate text-[11px] text-muted-foreground font-medium">
-                            {req.clientName} · {req.plantName}
-                          </p>
+            <div className="p-4">
+              {stats.recentUsers && stats.recentUsers.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {stats.recentUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                          <span className="text-sm font-bold text-primary">
+                            {user.displayName?.charAt(0) || 'U'}
+                          </span>
                         </div>
-                        <div className="hidden shrink-0 sm:block">
-                          <StatusBadge status={req.status} />
-                        </div>
-                        <div className="shrink-0 text-left">
-                          <p
-                            className={`text-sm font-bold tabular-nums ${
-                              overdue ? 'text-red-700 dark:text-red-400' : ''
-                            }`}
-                          >
-                            {formatDateShort(req.dueDate)}
-                          </p>
-                          <p
-                            className={`text-[11px] font-bold ${
-                              overdue
-                                ? 'text-red-700 dark:text-red-400'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            {urgency.label}
+                        <div>
+                          <p className="text-sm font-semibold">{user.displayName}</p>
+                          <p className="text-[11px] text-muted-foreground font-mono">
+                            @{user.username}
                           </p>
                         </div>
                       </div>
-                    )
-                  })
-                ) : (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    لا توجد طلبات متأخرة حالياً
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="xl:col-span-5 space-y-10">
-              <Card>
-                <div className="p-4 border-b border-border">
-                  <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                    الطلبات حسب القسم
-                  </p>
-                </div>
-                <div className="p-4">
-                  {stats.sectorBreakdown && stats.sectorBreakdown.length > 0 ? (
-                    <div className="space-y-4">
-                      {stats.sectorBreakdown.map((sector) => {
-                        const pct = stats.totalCount > 0 ? Math.round((sector.total / stats.totalCount) * 100) : 0
-                        return (
-                          <div key={sector.sectorCode}>
-                            <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                              <p className="text-xs font-bold">
-                                <span className="text-primary">{sector.sectorCode}</span> ·{' '}
-                                {sector.sectorName}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                                {sector.total} طلب · {pct}%
-                              </p>
-                            </div>
-                            <div className="h-1 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-primary"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">لا توجد بيانات</p>
-                  )}
-                </div>
-              </Card>
-
-              <Card>
-                <div className="p-4 border-b border-border">
-                  <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                    الطلبات حسب العميل (الأكثر نشاطاً)
-                  </p>
-                </div>
-                <div className="p-4">
-                  {stats.clientBreakdown && stats.clientBreakdown.length > 0 ? (
-                    <div className="divide-y divide-border">
-                      {stats.clientBreakdown.slice(0, 8).map((client) => (
-                        <div
-                          key={client.clientId}
-                          className="flex items-center justify-between gap-3 py-3"
+                      <div className="flex items-center gap-4 text-sm">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            user.isActive
+                              ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/60 dark:text-green-300'
+                              : 'border-border bg-muted/40 text-muted-foreground'
+                          }`}
                         >
-                          <p className="truncate text-sm font-bold">{client.clientName}</p>
-                          <div className="flex shrink-0 items-center gap-6">
-                            <div className="text-center">
-                              <p className="text-base font-black tabular-nums">{client.total}</p>
-                              <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
-                                إجمالي
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-base font-black tabular-nums text-green-700 dark:text-green-400">
-                                {client.won}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
-                                فائزة
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          {user.isActive ? 'نشط' : 'معطل'}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'لم يسجل دخول'}
+                        </span>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">لا توجد بيانات</p>
-                  )}
+                  ))}
                 </div>
-              </Card>
-
-              <Card>
-                <div className="p-4 border-b border-border">
-                  <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                    إجراءات سريعة
-                  </p>
-                </div>
-                <div className="p-4 space-y-2">
-                  <Button
-                    onClick={() => navigate('/users')}
-                    className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
-                  >
-                    <span className="text-lg">👥</span>
-                    <span>إدارة المستخدمين والصلاحيات</span>
-                  </Button>
-                  <Button
-                    onClick={() => navigate('/requisitions')}
-                    className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
-                  >
-                    <span className="text-lg">📋</span>
-                    <span>عرض جميع طلبات الشراء</span>
-                  </Button>
-                  <Button
-                    onClick={() => navigate('/clients')}
-                    className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
-                  >
-                    <span className="text-lg">🏢</span>
-                    <span>إدارة العملاء والمصانع</span>
-                  </Button>
-                  <Button
-                    onClick={() => navigate('/settings')}
-                    className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
-                  >
-                    <span className="text-lg">⚙️</span>
-                    <span>إعدادات النظام</span>
-                  </Button>
-                </div>
-              </Card>
+              ) : (
+                <p className="text-sm text-muted-foreground">لا يوجد مستخدمون</p>
+              )}
             </div>
-          </div>
-        </>
-      )}
+          </Card>
+        </div>
+
+        <div className="xl:col-span-5 space-y-10">
+          <Card>
+            <div className="p-4 border-b border-border">
+              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+                العملاء الأكثر نشاطاً
+              </p>
+            </div>
+            <div className="p-4">
+              {stats.topClients && stats.topClients.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {stats.topClients.map((client) => (
+                    <div key={client.id} className="flex items-center justify-between gap-3 py-3">
+                      <p className="truncate text-sm font-bold">{client.name}</p>
+                      <div className="flex shrink-0 items-center gap-4">
+                        <div className="text-center">
+                          <p className="text-base font-black tabular-nums">{client.totalRequisitions}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
+                            طلبات
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-base font-black tabular-nums text-green-700 dark:text-green-400">
+                            {client.wonCount}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
+                            فائزة
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">لا توجد بيانات عملاء</p>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-4 border-b border-border">
+              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+                إجراءات سريعة
+              </p>
+            </div>
+            <div className="p-4 space-y-2">
+              <Button
+                onClick={() => navigate('/users')}
+                className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
+              >
+                <span className="text-lg">👥</span>
+                <span>إدارة المستخدمين والصلاحيات</span>
+              </Button>
+              <Button
+                onClick={() => navigate('/clients')}
+                className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
+              >
+                <span className="text-lg">🏢</span>
+                <span>إدارة العملاء والمصانع</span>
+              </Button>
+              <Button
+                onClick={() => navigate('/settings')}
+                className="w-full justify-start gap-3 bg-muted hover:bg-muted/80"
+              >
+                <span className="text-lg">⚙️</span>
+                <span>إعدادات النظام</span>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

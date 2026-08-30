@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Moq;
 using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
@@ -23,6 +25,7 @@ public class AuthControllerTests : IDisposable
     private readonly AuthController _controller;
     private readonly TokenService _tokens;
     private readonly PasswordHasher<AppUser> _hasher = new();
+    private readonly ILogger<AuthController> _logger;
 
     private static readonly string TestKey = "test-secret-key-long-enough-for-hmac-sha256-signing-0123456789";
 
@@ -46,7 +49,8 @@ public class AuthControllerTests : IDisposable
             })
             .Build();
         _tokens = new TokenService(config, TimeProvider.System);
-        _controller = new AuthController(_db, _tokens, new LoginThrottle(TimeProvider.System));
+        _logger = Mock.Of<ILogger<AuthController>>();
+        _controller = new AuthController(_db, _tokens, new LoginThrottle(TimeProvider.System), _logger);
     }
 
     public void Dispose()
