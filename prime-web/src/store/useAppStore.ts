@@ -6,6 +6,7 @@ import type {
   DashboardStatsDto,
   ManagerDashboardStatsDto,
   NotificationDto,
+  PermissionMatrixDto,
   PlantDetailDto,
   RequisitionDto,
   RequisitionStatsDto,
@@ -28,6 +29,7 @@ interface AppState {
   kpiStats: RequisitionStatsDto | null
   userStats: UserDashboardStatsDto | null
   managerStats: ManagerDashboardStatsDto | null
+  permissionMatrix: PermissionMatrixDto | null
   requisitions: RequisitionDto[]
   clients: ClientDto[]
   plants: PlantDetailDto[]
@@ -70,6 +72,7 @@ interface AppState {
   setError: (error: string | null) => void
   setUserStats: (stats: UserDashboardStatsDto) => void
   setManagerStats: (stats: ManagerDashboardStatsDto) => void
+  setPermissionMatrix: (matrix: PermissionMatrixDto) => void
 
   createRequisition: (body: Parameters<typeof api.requisitions.create>[0]) => Promise<RequisitionDto>
   updateRequisition: (id: number, body: Parameters<typeof api.requisitions.update>[1]) => Promise<void>
@@ -104,6 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   kpiStats: null,
   userStats: null,
   managerStats: null,
+  permissionMatrix: null,
   requisitions: [],
   clients: [],
   plants: [],
@@ -242,6 +246,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setUserStats: (stats) => set({ userStats: stats }),
   setManagerStats: (stats) => set({ managerStats: stats }),
+  setPermissionMatrix: (matrix: PermissionMatrixDto) => set({ permissionMatrix: matrix }),
 
   fetchNotifications: async () => {
     try {

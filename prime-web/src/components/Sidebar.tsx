@@ -21,6 +21,7 @@ const ADMIN_SECTIONS = [
   { to: '/requisitions', label: 'جميع الطلبات' },
   { to: '/clients', label: 'العملاء' },
   { to: '/users', label: 'المستخدمون' },
+  { to: '/permissions', label: 'مصفوفة الصلاحيات' },
   { to: '/settings', label: 'الإعدادات' },
 ]
 

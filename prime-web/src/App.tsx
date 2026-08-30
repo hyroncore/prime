@@ -10,6 +10,7 @@ import { ClientsPage } from '@/pages/ClientsPage'
 import { DashboardRedirect } from '@/components/DashboardRedirect'
 import { LoginPage } from '@/pages/LoginPage'
 import { NewRequisitionPage } from '@/pages/NewRequisitionPage'
+import { PermissionMatrixPage } from '@/pages/PermissionMatrixPage'
 import { RequisitionDetailPage } from '@/pages/RequisitionDetailPage'
 import { RequisitionEditPage } from '@/pages/RequisitionEditPage'
 import { RequisitionsPage } from '@/pages/RequisitionsPage'
@@ -17,9 +18,9 @@ import { RequisitionPrintPage } from '@/pages/RequisitionPrintPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { UsersPage } from '@/pages/UsersPage'
 import { AccountPage } from '@/pages/AccountPage'
-import { UserDashboardPage } from '@/pages/UserDashboardPage'
-import { ManagerDashboardPage } from '@/pages/ManagerDashboardPage'
 import { AdminDashboardPage } from '@/pages/AdminDashboardPage'
+import { ManagerDashboardPage } from '@/pages/ManagerDashboardPage'
+import { UserDashboardPage } from '@/pages/UserDashboardPage'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, useSettingsStore } from '@/store/useSettingsStore'
@@ -165,6 +166,14 @@ export default function App() {
                   element={
                     <RequireAdmin>
                       <UsersPage />
+                    </RequireAdmin>
+                  }
+                />
+                <Route
+                  path="/permissions"
+                  element={
+                    <RequireAdmin>
+                      <PermissionMatrixPage />
                     </RequireAdmin>
                   }
                 />

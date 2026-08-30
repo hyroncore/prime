@@ -192,6 +192,33 @@ export interface NotificationsListDto {
   unreadCount: number
 }
 
+export interface PermissionDto {
+  id: number
+  key: string
+  description: string
+  category: string
+}
+
+export interface PermissionCellDto {
+  permissionId: number
+  permissionKey: string
+  isGranted: boolean
+}
+
+export interface RolePermissionDto {
+  role: string
+  permissions: PermissionCellDto[]
+}
+
+export interface PermissionMatrixDto {
+  roles: RolePermissionDto[]
+  permissions: PermissionDto[]
+}
+
+export interface UpdatePermissionsRequest {
+  permissions: PermissionCellDto[]
+}
+
 export interface UserDashboardStatsDto {
   myActiveRequisitions: number
   myDrafts: number

@@ -10,6 +10,7 @@ import type {
   LoginResponse,
   ManagerDashboardStatsDto,
   NotificationsListDto,
+  PermissionMatrixDto,
   PlantDetailDto,
   RequisitionDto,
   RequisitionStatsDto,
@@ -17,6 +18,7 @@ import type {
   SectorDto,
   UpdateClientRequest,
   UpdatePlantRequest,
+  UpdatePermissionsRequest,
   UpdateRequisitionRequest,
   UpdateUserRequest,
   UserDashboardStatsDto,
@@ -241,5 +243,20 @@ export const api = {
       request<void>('/notifications/read-all', {
         method: 'POST',
       }),
+  },
+
+  permissions: {
+    matrix: () => request<PermissionMatrixDto>('/permissions/matrix'),
+    updateRole: (role: string, body: UpdatePermissionsRequest) =>
+      request<void>(`/permissions/role/${role}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    updateUser: (userId: number, body: UpdatePermissionsRequest) =>
+      request<void>(`/permissions/user/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    myPermissions: () => request<string[]>('/permissions/my-permissions'),
   },
 }
