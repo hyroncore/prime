@@ -58,7 +58,7 @@ public class PrimeDbContext : DbContext
             entity.Property(r => r.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.HasOne(r => r.Plant)
-                  .WithMany()
+                  .WithMany(p => p.Requisitions)
                   .HasForeignKey(r => r.PlantId)
                   .OnDelete(DeleteBehavior.Restrict);
 
