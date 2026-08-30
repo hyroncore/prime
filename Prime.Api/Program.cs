@@ -2,10 +2,11 @@ using System.IO;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using Prime.Api.Authorization;
 using Prime.Api.Data;
 using Prime.Api.Services;
 
@@ -23,7 +24,6 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
 }
 
-// Build connection string from DATABASE_URL (Render) or appsettings.json
 string connectionString = BuildConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<PrimeDbContext>(options =>
@@ -57,7 +57,25 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Requisition policies
+    options.AddPolicy("req:create", policy => policy.Requirements.Add(new PermissionRequirement("req:create")));
+    options.AddPolicy("req:edit", policy => policy.Requirements.Add(new PermissionRequirement("req:edit")));
+    options.AddPolicy("req:delete", policy => policy.Requirements.Add(new PermissionRequirement("req:delete")));
+    options.AddPolicy("req:submit_review", policy => policy.Requirements.Add(new PermissionRequirement("req:submit_review")));
+    options.AddPolicy("req:review_action", policy => policy.Requirements.Add(new PermissionRequirement("req:review_action")));
+    options.AddPolicy("req:request_submit", policy => policy.Requirements.Add(new PermissionRequirement("req:request_submit")));
+    options.AddPolicy("req:approve_internal", policy => policy.Requirements.Add(new PermissionRequirement("req:approve_internal")));
+    options.AddPolicy("req:request_revision", policy => policy.Requirements.Add(new PermissionRequirement("req:request_revision")));
+    options.AddPolicy("req:mark_outcome", policy => policy.Requirements.Add(new PermissionRequirement("req:mark_outcome")));
+
+    options.AddPolicy("admin:manage_system", policy => policy.Requirements.Add(new PermissionRequirement("admin:manage_system")));
+
+    // Role-based policies (fallback)
+    options.AddPolicy("RequireManager", policy => policy.RequireRole("Manager", "Admin"));
+    options.AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
+});
 
 builder.Services.AddCors(options =>
 {
@@ -72,14 +90,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<LoginThrottle>();
-builder.Services.AddHostedService<Prime.Api.Services.NotificationScheduler>();
+builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddHostedService<ArchivalService>();
+builder.Services.AddHostedService<NotificationScheduler>();
 
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PrimeDbContext>();
-    db.Database.Migrate();
     DbSeeder.Seed(db);
 }
 
@@ -89,23 +109,23 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers().RequireAuthorization();
-app.MapHealthChecks("/api/health");
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapFallbackToFile("index.html");
 
+app.MapHealthChecks("/api/health");
+
 app.Run();
 
 static string BuildConnectionString(IConfiguration config)
 {
-    // Check multiple possible environment variable names (Render, Railway, etc.)
     var databaseUrl = config["DATABASE_URL"]
-                     ?? config["POSTGRES_URL"]
-                     ?? config["POSTGRESQL_URL"]
-                     ?? config["PGDATABASE_URL"]
-                     ?? config.GetConnectionString("PrimeDb");
+        ?? config["POSTGRES_URL"]
+        ?? config["POSTGRESQL_URL"]
+        ?? config["PGDATABASE_URL"]
+        ?? config.GetConnectionString("PrimeDb");
 
     if (string.IsNullOrEmpty(databaseUrl))
     {

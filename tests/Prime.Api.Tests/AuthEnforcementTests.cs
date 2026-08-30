@@ -11,9 +11,22 @@ public class AuthEnforcementTests
 {
     [Theory]
     [InlineData(typeof(RequisitionsController))]
+    public void DeleteAction_RequiresManagerRole(Type controllerType)
+    {
+        var deleteAction = controllerType
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Single(method => method.GetCustomAttribute<HttpDeleteAttribute>() is not null);
+
+        var auth = deleteAction.GetCustomAttribute<AuthorizeAttribute>();
+        Assert.NotNull(auth);
+        Assert.Equal(UserRoles.Manager, auth.Roles);
+    }
+
+    [Theory]
     [InlineData(typeof(ClientsController))]
     [InlineData(typeof(PlantsController))]
     [InlineData(typeof(AttachmentsController))]
+    [InlineData(typeof(UsersController))]
     public void DeleteAction_RequiresAdminRole(Type controllerType)
     {
         var deleteAction = controllerType

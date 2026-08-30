@@ -13,8 +13,26 @@ public static class DbSeeder
 
     public static void Seed(PrimeDbContext db)
     {
-        db.Database.Migrate();
+        // For test databases (in-memory SQLite), use EnsureCreated
+        // For production databases with migrations, use Migrate
+        var isSqlite = db.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+        var pendingMigrations = db.Database.GetPendingMigrations().Any();
+        
+        if (isSqlite && !db.Database.CanConnect())
+        {
+            db.Database.EnsureCreated();
+        }
+        else if (!isSqlite && db.Database.GetPendingMigrations().Any())
+        {
+            db.Database.Migrate();
+        }
+        else
+        {
+            db.Database.EnsureCreated();
+        }
+        
         SeedAdminUser(db);
+        SeedPermissions(db);
     }
 
     private static void SeedAdminUser(PrimeDbContext db)
@@ -52,7 +70,7 @@ public static class DbSeeder
             Username = "admin",
             DisplayName = "مدير النظام",
             Role = UserRoles.Admin,
-            PasswordHash = hasher.HashPassword(new AppUser(), password),
+            PasswordHash = new PasswordHasher<AppUser>().HashPassword(new AppUser(), password),
         };
 
         db.Users.Add(user);
@@ -64,6 +82,56 @@ public static class DbSeeder
         Console.WriteLine($"  كلمة المرور : {password}");
         Console.WriteLine("يرجى تغيير كلمة المرور بعد أول تسجيل دخول.");
         Console.WriteLine("=============================================");
+    }
+
+    private static void SeedPermissions(PrimeDbContext db)
+    {
+        var permissions = new List<Permission>
+        {
+            // Requisition permissions
+            new() { Key = "req:create", Description = "Create new requisition draft", Category = "requisition" },
+            new() { Key = "req:edit", Description = "Edit requisition details", Category = "requisition" },
+            new() { Key = "req:delete", Description = "Hard delete requisition (NEW state only)", Category = "requisition" },
+            new() { Key = "req:submit_review", Description = "Submit for review (NEW → REVIEW)", Category = "requisition" },
+            new() { Key = "req:review_action", Description = "Review action (REVIEW → PROCESSING/DECLINED)", Category = "requisition" },
+            new() { Key = "req:request_submit", Description = "Request internal sign-off (PROCESSING → SUBMITTED)", Category = "requisition" },
+            new() { Key = "req:approve_internal", Description = "Internal sign-off (SUBMITTED → APPROVED)", Category = "requisition" },
+            new() { Key = "req:request_revision", Description = "Request revision (SUBMITTED → REVISE)", Category = "requisition" },
+            new() { Key = "req:mark_outcome", Description = "Record client outcome (WON/LOST)", Category = "requisition" },
+            
+            // Admin
+            new() { Key = "admin:manage_system", Description = "Manage users and permission matrix", Category = "admin" },
+        };
+
+        foreach (var perm in permissions)
+        {
+            if (!db.Permissions.Any(p => p.Key == perm.Key))
+            {
+                db.Permissions.Add(perm);
+            }
+        }
+        db.SaveChanges();
+
+        // Seed default role permissions
+        var defaults = new Dictionary<string, string[]>
+        {
+            ["Admin"] = new[] { "admin:manage_system", "req:create", "req:edit", "req:delete", "req:submit_review", "req:review_action", "req:request_submit", "req:approve_internal", "req:request_revision", "req:mark_outcome" },
+            ["Manager"] = new[] { "req:review_action", "req:approve_internal", "req:request_revision" },
+            ["User"] = new[] { "req:create", "req:edit", "req:submit_review", "req:request_submit", "req:mark_outcome" }
+        };
+
+        foreach (var (role, perms) in defaults)
+        {
+            foreach (var permKey in perms)
+            {
+                var perm = db.Permissions.First(p => p.Key == permKey);
+                if (!db.RolePermissions.Any(rp => rp.Role == role && rp.PermissionId == perm.Id))
+                {
+                    db.RolePermissions.Add(new RolePermission { Role = role, PermissionId = perm.Id, IsGranted = true });
+                }
+            }
+        }
+        db.SaveChanges();
     }
 
     private const string Alphabet =

@@ -7,6 +7,9 @@ public enum RequisitionStatus
     DECLINED,
     PROCESSING,
     SUBMITTED,
+    APPROVED,
+    REVISE,
     WON,
-    LOST
+    LOST,
+    ARCHIVE
 }

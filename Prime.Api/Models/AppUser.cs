@@ -10,4 +10,12 @@ public class AppUser
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
+
+    // Manager hierarchy
+    public int? ManagerId { get; set; }
+    public AppUser? Manager { get; set; }
+    public List<AppUser> Subordinates { get; set; } = new();
+    public string Department { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
 }

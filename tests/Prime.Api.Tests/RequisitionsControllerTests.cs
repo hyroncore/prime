@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
+using System.Security.Claims;
 
 namespace Prime.Api.Tests;
 
@@ -26,8 +28,25 @@ public class RequisitionsControllerTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _db = new PrimeDbContext(options);
-        _db.Database.Migrate();
-        _controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot));
+        _db.Database.EnsureCreated();
+        
+        // Seed test user with ID 1
+        _db.Users.Add(new AppUser { Id = 1, Username = "testuser", DisplayName = "Test User", Role = "User", PasswordHash = "dummy", IsActive = true, CreatedAt = DateTime.UtcNow });
+        _db.SaveChanges();
+        
+        var controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot));
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, "1"),
+                    new Claim(ClaimTypes.Role, "User")
+                }))
+            }
+        };
+        _controller = controller;
     }
 
     public void Dispose()

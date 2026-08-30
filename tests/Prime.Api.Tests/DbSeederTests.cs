@@ -21,7 +21,7 @@ public class DbSeederTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _db = new PrimeDbContext(options);
-        _db.Database.Migrate();
+        _db.Database.EnsureCreated();
     }
 
     public void Dispose()

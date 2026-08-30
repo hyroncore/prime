@@ -25,7 +25,7 @@ public class NotificationsTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _db = new PrimeDbContext(options);
-        _db.Database.Migrate();
+        _db.Database.EnsureCreated();
         _controller = new NotificationsController(_db);
     }
 

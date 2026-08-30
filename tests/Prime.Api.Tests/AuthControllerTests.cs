@@ -34,7 +34,7 @@ public class AuthControllerTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _db = new PrimeDbContext(options);
-        _db.Database.Migrate();
+        _db.Database.EnsureCreated();
 
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

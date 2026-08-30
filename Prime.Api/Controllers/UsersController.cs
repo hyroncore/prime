@@ -114,6 +114,7 @@ public class UsersController : ControllerBase
         return Ok(new { message = "تمت إعادة تعيين كلمة المرور بنجاح" });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {

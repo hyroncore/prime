@@ -29,7 +29,7 @@ public class UsersControllerTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _db = new PrimeDbContext(options);
-        _db.Database.Migrate();
+        _db.Database.EnsureCreated();
 
         _controller = new UsersController(_db);
         var config = new ConfigurationBuilder()

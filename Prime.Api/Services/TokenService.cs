@@ -17,12 +17,33 @@ public class TokenService(IConfiguration config, TimeProvider time)
 
     public string CreateToken(AppUser user)
     {
-        var claims = new[]
+        var permissions = new HashSet<string>();
+        
+        string[] rolePermissions = user.Role switch
+        {
+            "Admin" => new[] { "admin:manage_system", "req:create", "req:edit", "req:delete", "req:submit_review", "req:review_action", "req:request_submit", "req:approve_internal", "req:request_revision", "req:mark_outcome" },
+            "Manager" => new[] { "req:review_action", "req:approve_internal", "req:request_revision" },
+            "User" => new[] { "req:create", "req:edit", "req:submit_review", "req:request_submit", "req:mark_outcome" },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (var perm in rolePermissions)
+        {
+            permissions.Add(perm);
+        }
+
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.Role, user.Role),
         };
+
+        foreach (var perm in permissions)
+        {
+            claims.Add(new Claim("permission", perm));
+        }
+
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_key)),
             SecurityAlgorithms.HmacSha256);

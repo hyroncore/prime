@@ -28,8 +28,12 @@ public class NotificationEngine
         };
 
         var requisitions = await db.PurchaseRequisitions
-            .Where(r => relevantStatuses.Contains(r.Status))
             .ToListAsync(ct);
+
+        var relevantSet = new HashSet<string>(relevantStatuses);
+        var filteredRequisitions = requisitions
+            .Where(r => relevantSet.Contains(r.Status))
+            .ToList();
 
         var existingKeys = await db.Notifications
             .Select(n => n.DedupKey)
@@ -87,17 +91,34 @@ public class NotificationEngine
             nameof(RequisitionStatus.DECLINED)
         };
 
-        var closedIds = await db.PurchaseRequisitions
-            .Where(r => closedStatuses.Contains(r.Status))
-            .Select(r => r.Id)
+        var allRequisitions = await db.PurchaseRequisitions
+            .Select(r => new { r.Id, r.Status })
             .ToListAsync(ct);
 
-        if (closedIds.Count == 0) return;
+        var closedRequisitions = allRequisitions
+            .Where(r => closedStatuses.Contains(r.Status))
+            .Select(r => r.Id)
+            .ToList();
 
-        await db.Notifications
+        if (closedRequisitions.Count == 0) return;
+
+        var closedIdSet = new HashSet<int>(closedRequisitions);
+
+        var notifications = await db.Notifications
             .Where(n => n.RequisitionId.HasValue
-                && closedIds.Contains(n.RequisitionId.Value)
                 && n.ReadAt == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(n => n.ReadAt, now), ct);
+            .ToListAsync(ct);
+
+        var toUpdate = notifications.Where(n => closedIdSet.Contains(n.RequisitionId!.Value)).ToList();
+
+        foreach (var notification in toUpdate)
+        {
+            notification.ReadAt = now;
+        }
+
+        if (toUpdate.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
     }
 }

@@ -17,6 +17,9 @@ public class PrimeDbContext : DbContext
     public DbSet<RequisitionAttachment> RequisitionAttachments => Set<RequisitionAttachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +66,51 @@ public class PrimeDbContext : DbContext
                   .WithOne(a => a.Requisition)
                   .HasForeignKey(a => a.RequisitionId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.CreatedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.CreatedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.ApprovedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.ApprovedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.SubmittedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.SubmittedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.RevisedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.RevisedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.ApprovedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.ApprovedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.OutcomeRecordedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.OutcomeRecordedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.DeclinedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.DeclinedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.ArchivedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.ArchivedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(r => r.CreatedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.CreatedById)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<RequisitionAuditLog>(entity =>
@@ -106,6 +154,40 @@ public class PrimeDbContext : DbContext
             entity.Property(u => u.PasswordHash).IsRequired();
             entity.Property(u => u.Role).IsRequired();
             entity.Property(u => u.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(u => u.Manager)
+                  .WithMany(u => u.Subordinates)
+                  .HasForeignKey(u => u.ManagerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.Property(p => p.Key).IsRequired().HasMaxLength(100);
+            entity.HasIndex(p => p.Key).IsUnique();
+            entity.Property(p => p.Category).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.HasIndex(rp => new { rp.Role, rp.PermissionId }).IsUnique();
+            entity.HasOne(rp => rp.Permission)
+                  .WithMany()
+                  .HasForeignKey(rp => rp.PermissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserPermission>(entity =>
+        {
+            entity.HasIndex(up => new { up.UserId, up.PermissionId }).IsUnique();
+            entity.HasOne(up => up.Permission)
+                  .WithMany()
+                  .HasForeignKey(up => up.PermissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(up => up.User)
+                  .WithMany()
+                  .HasForeignKey(up => up.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

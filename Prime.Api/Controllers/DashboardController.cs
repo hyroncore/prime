@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
@@ -103,5 +105,149 @@ public class DashboardController : ControllerBase
             overdue,
             sectorBreakdown,
             clientBreakdown));
+    }
+
+    [HttpGet("user-stats")]
+    [Authorize]
+    public async Task<ActionResult<UserDashboardStatsDto>> GetUserStats()
+    {
+        var userId = GetCurrentUserId();
+        
+        var requisitions = await _db.PurchaseRequisitions
+            .Include(r => r.Plant)!
+                .ThenInclude(p => p!.Client)
+            .Where(r => r.CreatedById == userId)
+            .ToListAsync();
+
+        var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
+        var openCount = requisitions.Count(r => new[] { "NEW", "REVIEW", "PROCESSING" }.Contains(r.Status));
+        var draftCount = requisitions.Count(r => r.Status == "NEW");
+        var awaitingReview = requisitions.Count(r => r.Status == "REVIEW");
+        var awaitingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
+        var reviseCount = requisitions.Count(r => r.Status == "REVISE");
+        var wonCount = requisitions.Count(r => r.Status == "WON");
+        var lostCount = requisitions.Count(r => r.Status == "LOST");
+
+        var decided = wonCount + lostCount;
+        var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
+
+        var now = DateTime.UtcNow;
+        var overdueCount = requisitions.Count(r => openStatuses.Contains(r.Status) && r.DueDate < now.Date);
+
+        var actionRequired = requisitions
+            .Where(r => r.Status == "REVISE")
+            .Select(r => new UrgentRequisitionDto(
+                r.Id,
+                r.Identifier,
+                r.Title,
+                r.Plant!.Client!.Name,
+                r.Plant.PlantName,
+                r.DueDate,
+                r.Status,
+                (int)Math.Ceiling((r.DueDate - DateTime.UtcNow).TotalDays)))
+            .OrderBy(u => u.DueDate)
+            .ToList();
+
+        return Ok(new UserDashboardStatsDto(
+            openCount,
+            draftCount,
+            awaitingReview,
+            awaitingSignOff,
+            reviseCount,
+            overdueCount,
+            wonCount,
+            lostCount,
+            winRate,
+            actionRequired
+        ));
+    }
+
+    [HttpGet("manager-stats")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<ActionResult<ManagerDashboardStatsDto>> GetManagerStats()
+    {
+        var userId = GetCurrentUserId();
+        var isAdmin = User.IsInRole("Admin");
+
+        var teamUserIds = new List<int> { GetCurrentUserId() };
+        if (!isAdmin)
+        {
+            var subordinates = await _db.Users
+                .Where(u => u.ManagerId == userId && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+            teamUserIds.AddRange(subordinates);
+        }
+        else
+        {
+            var allUsers = await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync();
+            teamUserIds.AddRange(allUsers);
+        }
+
+        var requisitions = await _db.PurchaseRequisitions
+            .Include(r => r.Plant)!
+                .ThenInclude(p => p!.Client)
+            .Where(r => teamUserIds.Contains(r.CreatedById ?? 0))
+            .ToListAsync();
+
+        var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
+        var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
+        var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
+        var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
+        var teamVolume = requisitions.Count;
+        var wonCount = requisitions.Count(r => r.Status == "WON");
+        var lostCount = requisitions.Count(r => r.Status == "LOST");
+        var decided = wonCount + lostCount;
+        var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
+
+        var pendingReviews = requisitions
+            .Where(r => r.Status == "REVIEW")
+            .Select(r => new UrgentRequisitionDto(
+                r.Id, r.Identifier, r.Title, 
+                r.Plant!.Client!.Name, r.Plant!.PlantName, 
+                r.DueDate, r.Status, 
+                (int)Math.Ceiling((r.DueDate - DateTime.UtcNow).TotalDays)))
+            .OrderBy(r => r.DueDate)
+            .ToList();
+
+        var pendingSignOffs = requisitions
+            .Where(r => r.Status == "SUBMITTED")
+            .Select(r => new PendingSignOffDto(
+                r.Id, r.Identifier, r.Title, 
+                r.Plant!.PlantName, r.Plant!.Client!.Name, 
+                r.SubmittedAt ?? DateTime.MinValue))
+            .OrderBy(r => r.SubmittedAt)
+            .ToList();
+
+        var teamPerformance = await _db.Users
+            .Where(u => teamUserIds.Contains(u.Id))
+            .Select(u => new TeamMemberStatsDto(
+                u.Id,
+                u.DisplayName,
+                _db.PurchaseRequisitions.Count(r => r.CreatedById == u.Id && new[] { "NEW", "REVIEW", "PROCESSING" }.Contains(r.Status)),
+                _db.PurchaseRequisitions.Count(r => r.CreatedById == u.Id && r.Status == "REVISE"),
+                _db.PurchaseRequisitions.Count(r => r.CreatedById == u.Id && new[] { "WON", "LOST" }.Contains(r.Status)),
+                _db.PurchaseRequisitions.Count(r => r.CreatedById == u.Id && r.Status == "WON"),
+                _db.PurchaseRequisitions.Count(r => r.CreatedById == u.Id && new[] { "WON", "LOST" }.Contains(r.Status))
+            ))
+            .ToListAsync();
+
+        return Ok(new ManagerDashboardStatsDto(
+            teamVolume,
+            pendingReview,
+            pendingSignOff,
+            winRate,
+            wonCount,
+            lostCount,
+            teamPerformance,
+            pendingReviews,
+            pendingSignOffs
+        ));
+    }
+
+    private int GetCurrentUserId()
+    {
+        var idClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return int.TryParse(idClaim, out var id) ? id : 0;
     }
 }

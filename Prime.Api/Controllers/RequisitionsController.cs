@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
@@ -183,7 +184,8 @@ public class RequisitionsController : ControllerBase
                 ? DateTime.SpecifyKind(request.ReceivedAt.Value.Date, DateTimeKind.Utc)
                 : DateTime.UtcNow,
             Status = nameof(RequisitionStatus.NEW),
-            ClientNotes = request.ClientNotes
+            ClientNotes = request.ClientNotes,
+            CreatedById = GetCurrentUserId()
         };
 
         _db.PurchaseRequisitions.Add(requisition);
@@ -202,6 +204,221 @@ public class RequisitionsController : ControllerBase
         requisition.Plant = plant;
 
         return CreatedAtAction(nameof(GetById), new { id = requisition.Id }, ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/submit-review")]
+    [Authorize(Policy = "req:submit_review")]
+    public async Task<ActionResult<RequisitionDto>> SubmitForReview(int id, [FromBody] SubmitForReviewRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.NEW))
+            return BadRequest("Only NEW requisitions can be submitted for review");
+
+        if (requisition.CreatedById != GetCurrentUserId())
+            return Forbid();
+
+        requisition.Status = nameof(RequisitionStatus.REVIEW);
+        requisition.SubmittedAt = DateTime.UtcNow;
+        requisition.SubmittedById = GetCurrentUserId();
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "SubmittedForReview",
+            StatusFrom = nameof(RequisitionStatus.NEW),
+            StatusTo = nameof(RequisitionStatus.REVIEW),
+            Notes = request.Notes
+        });
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/review")]
+    [Authorize(Policy = "req:review_action")]
+    public async Task<ActionResult<RequisitionDto>> ReviewAction(int id, [FromBody] ReviewActionRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.REVIEW))
+            return BadRequest("Only REVIEW requisitions can be reviewed");
+
+        if (request.Action != "approve" && request.Action != "decline")
+            return BadRequest("Action must be 'approve' or 'decline'");
+
+        var newStatus = request.Action == "approve" 
+            ? nameof(RequisitionStatus.PROCESSING) 
+            : nameof(RequisitionStatus.DECLINED);
+
+        var statusFrom = requisition.Status;
+        requisition.Status = newStatus;
+        
+        if (request.Action == "approve")
+        {
+            requisition.ProcessedById = GetCurrentUserId();
+        }
+        else
+        {
+            requisition.DeclinedAt = DateTime.UtcNow;
+            requisition.DeclinedById = GetCurrentUserId();
+        }
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "Reviewed",
+            StatusFrom = statusFrom,
+            StatusTo = requisition.Status,
+            Notes = request.Notes
+        });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/submit")]
+    [Authorize(Policy = "req:request_submit")]
+    public async Task<ActionResult<RequisitionDto>> RequestSubmit(int id, [FromBody] RequestSubmitRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.PROCESSING))
+            return BadRequest("Only PROCESSING requisitions can be submitted for sign-off");
+
+        if (requisition.CreatedById != GetCurrentUserId())
+            return Forbid();
+
+        requisition.Status = nameof(RequisitionStatus.SUBMITTED);
+        requisition.SubmittedAt = DateTime.UtcNow;
+        requisition.SubmittedById = GetCurrentUserId();
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "SubmittedForSignOff",
+            StatusFrom = nameof(RequisitionStatus.PROCESSING),
+            StatusTo = nameof(RequisitionStatus.SUBMITTED),
+            Notes = request.Notes
+        });
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/approve-internal")]
+    [Authorize(Policy = "req:approve_internal")]
+    public async Task<ActionResult<RequisitionDto>> InternalAction(int id, [FromBody] InternalActionRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.SUBMITTED))
+            return BadRequest("Only SUBMITTED requisitions can be internally actioned");
+
+        if (request.Action != "approve" && request.Action != "revise")
+            return BadRequest("Action must be 'approve' or 'revise'");
+
+        var newStatus = request.Action == "approve" 
+            ? nameof(RequisitionStatus.APPROVED) 
+            : nameof(RequisitionStatus.REVISE);
+
+        var statusFrom = requisition.Status;
+        requisition.Status = newStatus;
+
+        if (request.Action == "approve")
+        {
+            requisition.IsInternallyApproved = true;
+            requisition.InternalApprovedAt = DateTime.UtcNow;
+            requisition.ApprovedById = GetCurrentUserId();
+        }
+        else
+        {
+            requisition.RevisedAt = DateTime.UtcNow;
+            requisition.RevisedById = GetCurrentUserId();
+            requisition.RevisionNotes = request.Notes;
+        }
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = request.Action == "approve" ? "InternallyApproved" : "RevisionRequested",
+            StatusFrom = statusFrom,
+            StatusTo = requisition.Status,
+            Notes = request.Notes
+        });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/request-revision")]
+    [Authorize(Policy = "req:request_revision")]
+    public async Task<ActionResult<RequisitionDto>> RequestRevision(int id, [FromBody] RequestRevisionRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.SUBMITTED))
+            return BadRequest("Only SUBMITTED requisitions can be sent back for revision");
+
+        if (string.IsNullOrWhiteSpace(request.Notes))
+            return BadRequest(new { message = "Revision notes are required." });
+
+        requisition.Status = nameof(RequisitionStatus.REVISE);
+        requisition.RevisedAt = DateTime.UtcNow;
+        requisition.RevisedById = GetCurrentUserId();
+        requisition.RevisionNotes = request.Notes;
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "RevisionRequested",
+            StatusFrom = nameof(RequisitionStatus.SUBMITTED),
+            StatusTo = nameof(RequisitionStatus.REVISE),
+            Notes = request.Notes
+        });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/mark-outcome")]
+    [Authorize(Policy = "req:mark_outcome")]
+    public async Task<ActionResult<RequisitionDto>> MarkOutcome(int id, [FromBody] MarkOutcomeRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions.FindAsync(id);
+        if (requisition == null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.APPROVED))
+            return BadRequest("Only APPROVED requisitions can have outcome marked");
+
+        if (request.Outcome != "WON" && request.Outcome != "LOST")
+            return BadRequest("Outcome must be 'WON' or 'LOST'");
+
+        var newStatus = request.Outcome;
+        requisition.Status = newStatus;
+        requisition.OutcomeRecordedAt = DateTime.UtcNow;
+        requisition.OutcomeRecordedById = GetCurrentUserId();
+
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "OutcomeRecorded",
+            StatusFrom = nameof(RequisitionStatus.APPROVED),
+            StatusTo = newStatus,
+            Notes = request.Notes
+        });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(requisition));
     }
 
     [HttpPatch("{id:int}/status")]
@@ -228,7 +445,7 @@ public class RequisitionsController : ControllerBase
         }
 
         var currentStatus = Enum.Parse<RequisitionStatus>(requisition.Status);
-        if (!RequisitionStatusService.IsTransitionAllowed(currentStatus, newStatus))
+        if (!RequisitionStatusService.CanTransition(currentStatus, newStatus, User.FindFirstValue(ClaimTypes.Role)!, User.Claims.Where(c => c.Type == "permission").Select(c => c.Value)))
         {
             return BadRequest(new
             {
@@ -328,7 +545,7 @@ public class RequisitionsController : ControllerBase
         return Ok(ToDto(requisition));
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Manager")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -340,6 +557,9 @@ public class RequisitionsController : ControllerBase
         {
             return NotFound();
         }
+
+        if (requisition.Status != nameof(RequisitionStatus.NEW))
+            return BadRequest("Only NEW requisitions can be deleted");
 
         var paths = requisition.Attachments
             .Select(a => Path.Combine(_env.ContentRootPath, "uploads", "requisitions", id.ToString(), a.StoredFileName))
@@ -357,6 +577,12 @@ public class RequisitionsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    private int GetCurrentUserId()
+    {
+        var idClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return int.TryParse(idClaim, out var id) ? id : 0;
     }
 
     private static RequisitionDto ToDto(PurchaseRequisition r) => new(
