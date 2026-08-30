@@ -18,7 +18,6 @@ const MANAGER_SECTIONS = [
 
 const ADMIN_SECTIONS = [
   { to: '/dashboard/admin', label: 'لوحة تحكم النظام' },
-  { to: '/requisitions', label: 'جميع الطلبات' },
   { to: '/clients', label: 'العملاء' },
   { to: '/users', label: 'المستخدمون' },
   { to: '/settings', label: 'الإعدادات' },

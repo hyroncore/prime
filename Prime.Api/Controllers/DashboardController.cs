@@ -215,6 +215,60 @@ public class DashboardController : ControllerBase
         ));
     }
 
+    [HttpGet("admin-stats")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<AdminDashboardStatsDto>> GetAdminStats()
+    {
+        var openStatuses = new[]
+        {
+            nameof(RequisitionStatus.NEW),
+            nameof(RequisitionStatus.REVIEW),
+            nameof(RequisitionStatus.PROCESSING)
+        };
+
+        var totalUsers = await _db.Users.CountAsync();
+        var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
+        var totalClients = await _db.Clients.CountAsync();
+        
+        var activeClientIds = await _db.PurchaseRequisitions
+            .Where(r => openStatuses.Contains(r.Status))
+            .Select(r => r.Plant!.ClientId)
+            .Distinct()
+            .ToListAsync();
+        var activeClients = activeClientIds.Count;
+
+        var recentUsers = await _db.Users
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(5)
+            .Select(u => new RecentUserDto(
+                u.Id,
+                u.Username,
+                u.DisplayName,
+                u.Role,
+                u.IsActive,
+                u.LastLoginAt))
+            .ToListAsync();
+
+        var topClients = await _db.PurchaseRequisitions
+            .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
+            .Select(g => new TopClientDto(
+                g.Key.ClientId,
+                g.Key.Name,
+                g.Count(),
+                g.Count(r => r.Status == nameof(RequisitionStatus.WON))))
+            .OrderByDescending(c => c.TotalRequisitions)
+            .Take(5)
+            .ToListAsync();
+
+        return Ok(new AdminDashboardStatsDto(
+            totalUsers,
+            activeUsers,
+            totalClients,
+            activeClients,
+            recentUsers,
+            topClients));
+    }
+
     [HttpGet("manager-stats")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<ManagerDashboardStatsDto>> GetManagerStats()

@@ -129,3 +129,11 @@ public record ManagerDashboardStatsDto(
     List<TeamMemberStatsDto> TeamPerformance,
     List<UrgentRequisitionDto> PendingReviews,
     List<PendingSignOffDto> PendingSignOffs);
+
+public record AdminDashboardStatsDto(
+    int TotalUsers,
+    int ActiveUsers,
+    int TotalClients,
+    int ActiveClients,
+    List<RecentUserDto> RecentUsers,
+    List<TopClientDto> TopClients);

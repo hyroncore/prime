@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { api } from '@/lib/api'
 import { SECTORS } from '@/lib/format'
 import type {
+  AdminDashboardStatsDto,
   ClientDto,
   DashboardStatsDto,
   ManagerDashboardStatsDto,
@@ -29,6 +30,7 @@ interface AppState {
   kpiStats: RequisitionStatsDto | null
   userStats: UserDashboardStatsDto | null
   managerStats: ManagerDashboardStatsDto | null
+  adminStats: AdminDashboardStatsDto | null
   permissionMatrix: PermissionMatrixDto | null
   requisitions: RequisitionDto[]
   clients: ClientDto[]
@@ -72,6 +74,7 @@ interface AppState {
   setError: (error: string | null) => void
   setUserStats: (stats: UserDashboardStatsDto) => void
   setManagerStats: (stats: ManagerDashboardStatsDto) => void
+  setAdminStats: (stats: AdminDashboardStatsDto) => void
   setPermissionMatrix: (matrix: PermissionMatrixDto) => void
 
   createRequisition: (body: Parameters<typeof api.requisitions.create>[0]) => Promise<RequisitionDto>
@@ -107,6 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   kpiStats: null,
   userStats: null,
   managerStats: null,
+  adminStats: null,
   permissionMatrix: null,
   requisitions: [],
   clients: [],
@@ -246,6 +250,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setUserStats: (stats) => set({ userStats: stats }),
   setManagerStats: (stats) => set({ managerStats: stats }),
+  setAdminStats: (stats) => set({ adminStats: stats }),
   setPermissionMatrix: (matrix: PermissionMatrixDto) => set({ permissionMatrix: matrix }),
 
   fetchNotifications: async () => {

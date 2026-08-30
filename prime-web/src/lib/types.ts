@@ -136,6 +136,15 @@ export interface TopClientDto {
   wonCount: number
 }
 
+export interface AdminDashboardStatsDto {
+  totalUsers: number
+  activeUsers: number
+  totalClients: number
+  activeClients: number
+  recentUsers: RecentUserDto[]
+  topClients: TopClientDto[]
+}
+
 export interface DashboardStatsDto {
   openCount: number
   newCount: number

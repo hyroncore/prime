@@ -1,4 +1,5 @@
 import type {
+  AdminDashboardStatsDto,
   AttachmentDto,
   ChangePasswordRequest,
   ClientDto,
@@ -121,6 +122,7 @@ export const api = {
     stats: () => request<DashboardStatsDto>('/dashboard/stats'),
     userStats: () => request<UserDashboardStatsDto>('/dashboard/user-stats'),
     managerStats: () => request<ManagerDashboardStatsDto>('/dashboard/manager-stats'),
+    adminStats: () => request<AdminDashboardStatsDto>('/dashboard/admin-stats'),
   },
 
   requisitions: {

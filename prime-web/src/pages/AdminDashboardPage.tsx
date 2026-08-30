@@ -8,15 +8,30 @@ import { formatRelativeTime } from '@/lib/format'
 
 export function AdminDashboardPage() {
   const navigate = useNavigate()
-  const stats = useAppStore((s) => s.stats)
+  const adminStats = useAppStore((s) => s.adminStats)
   const loading = useAppStore((s) => s.loading)
-  const fetchAll = useAppStore((s) => s.fetchAll)
+  const setAdminStats = useAppStore((s) => s.setAdminStats)
+  const setLoading = useAppStore((s) => s.setLoading)
+  const setError = useAppStore((s) => s.setError)
 
   useEffect(() => {
-    if (!stats) void fetchAll()
-  }, [stats, fetchAll])
+    let cancelled = false
+    const fetchStats = async () => {
+      try {
+        setLoading(true)
+        const stats = await import('@/lib/api').then(m => m.api.dashboard.adminStats())
+        if (!cancelled) setAdminStats(stats)
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load admin dashboard')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchStats()
+    return () => { cancelled = true }
+  }, [setAdminStats, setLoading, setError])
 
-  if (loading && !stats) {
+  if (loading && !adminStats) {
     return (
       <div className="space-y-10">
         <div className="flex items-center justify-between">
@@ -38,7 +53,7 @@ export function AdminDashboardPage() {
     )
   }
 
-  if (!stats) return null
+  if (!adminStats) return null
 
   return (
     <div dir="rtl" className="space-y-10">
@@ -71,7 +86,7 @@ export function AdminDashboardPage() {
             إجمالي المستخدمين
           </p>
           <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
-            {stats.totalUsers ?? 0}
+            {adminStats.totalUsers}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground font-medium">
             حسابات مسجلة في النظام
@@ -82,7 +97,7 @@ export function AdminDashboardPage() {
             المستخدمون النشطون
           </p>
           <p className="mt-2 text-4xl font-black tabular-nums tracking-tight text-green-700 dark:text-green-400">
-            {stats.activeUsers ?? 0}
+            {adminStats.activeUsers}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground font-medium">
             لديهم صلاحية دخول فعالة
@@ -93,7 +108,7 @@ export function AdminDashboardPage() {
             إجمالي العملاء
           </p>
           <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
-            {stats.totalClients ?? 0}
+            {adminStats.totalClients}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground font-medium">
             عملاء مسجلون في النظام
@@ -104,7 +119,7 @@ export function AdminDashboardPage() {
             العملاء النشطون
           </p>
           <p className="mt-2 text-4xl font-black tabular-nums tracking-tight text-blue-700 dark:text-blue-400">
-            {stats.activeClients ?? 0}
+            {adminStats.activeClients}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground font-medium">
             لديهم طلبات أو مصانع نشطة
@@ -121,9 +136,9 @@ export function AdminDashboardPage() {
               </p>
             </div>
             <div className="p-4">
-              {stats.recentUsers && stats.recentUsers.length > 0 ? (
+              {adminStats.recentUsers && adminStats.recentUsers.length > 0 ? (
                 <div className="divide-y divide-border">
-                  {stats.recentUsers.map((user) => (
+                  {adminStats.recentUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between gap-3 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
@@ -170,9 +185,9 @@ export function AdminDashboardPage() {
               </p>
             </div>
             <div className="p-4">
-              {stats.topClients && stats.topClients.length > 0 ? (
+              {adminStats.topClients && adminStats.topClients.length > 0 ? (
                 <div className="divide-y divide-border">
-                  {stats.topClients.map((client) => (
+                  {adminStats.topClients.map((client) => (
                     <div key={client.id} className="flex items-center justify-between gap-3 py-3">
                       <p className="truncate text-sm font-bold">{client.name}</p>
                       <div className="flex shrink-0 items-center gap-4">
