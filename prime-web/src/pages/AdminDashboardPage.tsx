@@ -25,6 +25,8 @@ export function AdminDashboardPage() {
         setLoading(true)
         const stats = await api.dashboard.adminStats()
         if (!cancelled) setAdminStats(stats)
+        // Clear global error on success
+        useAppStore.getState().setError(null)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load admin dashboard')
       } finally {
