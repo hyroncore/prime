@@ -216,7 +216,7 @@ export function AdminDashboardPage() {
           </div>
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <span className="text-sm font-medium">قاعدة البيانات (Neon PostgreSQL)</span>
+              <span className="text-sm font-medium">قاعدة البيانات</span>
               <Badge variant={systemHealth?.status === 'Healthy' ? 'default' : systemHealth?.status === 'Degraded' ? 'secondary' : 'destructive'}>
                 {systemHealth?.status ?? 'جارٍ التحميل...'}
               </Badge>
@@ -256,7 +256,7 @@ export function AdminDashboardPage() {
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h3 className="text-lg font-bold">قاعدة البيانات والنسخ الاحتياطية</h3>
             <Button onClick={handleExportBackup} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
-              تصدير نسخة احتياطية (JSON)
+              تصدير نسخة احتياطية
             </Button>
           </div>
           <div className="p-4 space-y-4">
