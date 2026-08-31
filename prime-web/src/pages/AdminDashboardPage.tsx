@@ -173,7 +173,7 @@ export function AdminDashboardPage() {
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-muted-foreground text-xs">زمن الاستجابة</p>
                 <p className={`font-bold tabular-nums ${systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 50 ? 'text-green-700' : systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 200 ? 'text-blue-700' : 'text-amber-700'}`}>
-                  {systemHealth?.databaseLatencyMs ?? 0} ms
+                  {systemHealth?.databaseLatencyMs ?? 0} ملي ثانية
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 50 ? 'ممتاز' : systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 200 ? 'طبيعي' : 'بطيء / بدء بارد'}
