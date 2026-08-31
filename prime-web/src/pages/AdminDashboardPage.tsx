@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { useAppStore } from '@/store/useAppStore'
 import { api } from '@/lib/api'
 import { formatRelativeTime } from '@/lib/format'
@@ -85,14 +87,15 @@ export function AdminDashboardPage() {
             <Skeleton className="h-8 w-48 rounded-lg mb-2" />
             <Skeleton className="h-4 w-64 rounded-lg" />
           </div>
+          <Skeleton className="h-9 w-28 rounded-lg" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+        <div className="grid grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i}>
+            <Card key={i} className="p-5">
               <Skeleton className="h-3 w-24 rounded mb-3" />
-              <Skeleton className="h-9 w-32 rounded mb-1" />
+              <Skeleton className="h-7 w-32 rounded mb-1" />
               <Skeleton className="h-3 w-20 rounded" />
-            </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -115,6 +118,7 @@ export function AdminDashboardPage() {
 
   return (
     <div dir="rtl" className="space-y-10">
+      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المدير العام</h1>
@@ -125,87 +129,38 @@ export function AdminDashboardPage() {
       </div>
 
       {/* KPIs Grid - 2 Cards: Users & Clients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Card 1: Total Users */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="pb-2">
-            <h3 className="text-[11px] font-bold text-muted-foreground tracking-wide">
-              إجمالي المستخدمين
-            </h3>
-          </div>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
-                  {adminStats.totalUsers}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-                  حسابات مسجلة في النظام
-                </p>
-              </div>
-            </div>
-            <div className="px-6 pb-6 pt-0 grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/30">
-                <p className="text-[10px] font-bold text-muted-foreground">نشطون</p>
-                <p className="mt-1 text-2xl font-black text-green-700 dark:text-green-400 tabular-nums">
-                  {adminStats.activeUsers}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/30">
-                <p className="text-[10px] font-bold text-muted-foreground">معطلون</p>
-                <p className="mt-1 text-2xl font-black text-red-700 dark:text-red-400 tabular-nums">
-                  {adminStats.inactiveUsers}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card className="p-5">
+          <p className="text-xs font-bold text-muted-foreground tracking-wide mb-2">
+            إجمالي المستخدمين
+          </p>
+          <div className="text-2xl font-black">{adminStats.totalUsers}</div>
+          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+            حسابات مسجلة في النظام
+          </p>
+        </Card>
 
         {/* Card 2: Total Clients */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="pb-2">
-            <h3 className="text-[11px] font-bold text-muted-foreground tracking-wide">
-              إجمالي العملاء
-            </h3>
-          </div>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">
-                  {adminStats.totalClients}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-                  عملاء مسجلون في النظام
-                </p>
-              </div>
-            </div>
-            <div className="px-6 pb-6 pt-0 grid grid-cols-2 gap-4">
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/30">
-                <p className="text-[10px] font-bold text-muted-foreground">نشطون</p>
-                <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-400 tabular-nums">
-                  {adminStats.activeClients}
-                </p>
-                <p className="text-[10px] text-muted-foreground">لديهم طلبات نشطة</p>
-              </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-950/30 border border-gray-200 dark:border-gray-900/30">
-                <p className="text-[10px] font-bold text-muted-foreground">إجمالي المصانع</p>
-                <p className="mt-1 text-2xl font-black text-gray-700 dark:text-gray-400 tabular-nums">
-                  {adminStats.totalPlants}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card className="p-5">
+          <p className="text-xs font-bold text-muted-foreground tracking-wide mb-2">
+            إجمالي العملاء
+          </p>
+          <div className="text-2xl font-black">{adminStats.totalClients}</div>
+          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+            عملاء مسجلون في النظام
+          </p>
+        </Card>
       </div>
 
       {/* System Health & Database Backup Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Card: System & Neon DB Health */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="p-4 border-b border-border">
-            <h3 className="text-lg font-bold text-primary">حالة النظام وقاعدة البيانات</h3>
-          </div>
-          <div className="p-4 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-primary">حالة النظام وقاعدة البيانات</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <span className="text-sm font-medium">قاعدة البيانات (Neon PostgreSQL)</span>
               <Badge variant={systemHealth?.status === 'سليم' ? 'default' : 'destructive'}>
@@ -231,18 +186,18 @@ export function AdminDashboardPage() {
                 <p className="font-medium capitalize">{systemHealth?.environment ?? 'production'}</p>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Card: Database Backup & Records */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h3 className="text-lg font-bold">قاعدة البيانات والنسخ الاحتياطية</h3>
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold">قاعدة البيانات والنسخ الاحتياطية</CardTitle>
             <Button onClick={handleExportBackup} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
               تصدير نسخة احتياطية
             </Button>
-          </div>
-          <div className="p-4 space-y-4">
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-muted-foreground text-xs">إجمالي السجلات</p>
@@ -285,85 +240,104 @@ export function AdminDashboardPage() {
                 <p className="text-sm text-muted-foreground text-center py-4">لا توجد نسخ احتياطية سابقة</p>
               )}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Users & Clients Cards Row */}
+      {/* Users & Clients Tables Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Card: Users */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="text-lg font-bold">المستخدمون</h3>
+        {/* Table: Users */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold">المستخدمون</CardTitle>
             <Button onClick={() => navigate('/users')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
               إدارة المستخدمين
             </Button>
-          </div>
-          <div className="p-4">
+          </CardHeader>
+          <CardContent className="p-0">
             {adminStats.recentUsers && adminStats.recentUsers.length > 0 ? (
-              <div className="divide-y divide-border">
-                {adminStats.recentUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <span className="text-sm font-bold text-primary">
-                          {user.displayName?.charAt(0) || 'U'}
-                        </span>
-                      </div>
-                      <div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border hover:bg-transparent">
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 w-[40px]">#</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">الاسم</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">المستخدم</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الحالة</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">آخر دخول</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {adminStats.recentUsers.map((user) => (
+                    <TableRow key={user.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                      <TableCell className="px-4 py-3.5">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                          <span className="text-sm font-bold text-primary">
+                            {user.displayName?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5">
                         <p className="text-sm font-semibold">{user.displayName}</p>
                         <p className="text-[11px] text-muted-foreground font-mono">@{user.username}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                        {user.isActive ? 'نشط' : 'معطل'}
-                      </Badge>
-                      <span className="text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5 text-center">
+                        <Badge variant={user.isActive ? 'default' : 'secondary'} className="rounded-full py-0">
+                          {user.isActive ? 'نشط' : 'معطل'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5 text-center text-sm text-muted-foreground">
                         {user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'لم يسجل دخول'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             ) : (
-              <p className="text-sm text-muted-foreground">لا يوجد مستخدمون</p>
+              <p className="text-sm text-muted-foreground text-center py-8">لا يوجد مستخدمون</p>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Card: Clients */}
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="text-lg font-bold">العملاء</h3>
+        {/* Table: Clients */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold">العملاء</CardTitle>
             <Button onClick={() => navigate('/clients')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
               إدارة العملاء
             </Button>
-          </div>
-          <div className="p-4">
+          </CardHeader>
+          <CardContent className="p-0">
             {adminStats.topClients && adminStats.topClients.length > 0 ? (
-              <div className="divide-y divide-border">
-                {adminStats.topClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between gap-3 py-3">
-                    <p className="truncate text-sm font-bold">{client.name}</p>
-                    <div className="flex shrink-0 items-center gap-4">
-                      <div className="text-center">
-                        <p className="text-base font-black tabular-nums">{client.totalRequisitions}</p>
-                        <p className="text-[10px] text-muted-foreground font-bold tracking-wide">طلبات</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-base font-black tabular-nums text-green-700 dark:text-green-400">{client.wonCount}</p>
-                        <p className="text-[10px] text-muted-foreground font-bold tracking-wide">فائزة</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border hover:bg-transparent">
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 w-[40px]">#</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">العميل</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الطلبات</TableHead>
+                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الفائزة</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {adminStats.topClients.map((client) => (
+                    <TableRow key={client.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                      <TableCell className="px-4 py-3.5">
+                        <p className="truncate text-sm font-bold">{client.name}</p>
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5 text-center text-base font-black tabular-nums">
+                        {client.totalRequisitions}
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5 text-center text-base font-black tabular-nums text-green-700 dark:text-green-400">
+                        {client.wonCount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             ) : (
-              <p className="text-sm text-muted-foreground">لا توجد بيانات عملاء</p>
+              <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات عملاء</p>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
