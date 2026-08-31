@@ -327,8 +327,6 @@ export interface SystemHealthDto {
   status: string
   databaseLatencyMs: number
   databaseError: string | null
-  databaseProvider: string
-  databaseName: string
   serverUptime: string
   environment: string
   tableCounts: TableCountsDto

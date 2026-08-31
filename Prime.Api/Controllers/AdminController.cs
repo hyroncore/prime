@@ -84,9 +84,8 @@ public class AdminController : ControllerBase
             totalPermissions
         );
 
-        // Determine health status
-        var status = dbHealthy ? "Healthy" : "Unreachable";
-        if (latencyMs > 200) status = "Degraded";
+        // Determine health status - only Healthy or Unreachable
+        var status = dbHealthy ? "سليم" : "غير متاح";
 
         // Get last backup info from audit logs or backup history
         var lastBackupLog = await _db.RequisitionAuditLogs
@@ -99,10 +98,8 @@ public class AdminController : ControllerBase
             status,
             latencyMs,
             dbError,
-            "Neon PostgreSQL",
-            _db.Database.GetDbConnection().Database,
-            GetUptime(),
-            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
+            GetUptimeArabic(),
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" ? "تطوير" : "إنتاج",
             tableCounts,
             lastBackupLog?.CreatedAt,
             lastBackupLog?.Notes,
@@ -175,9 +172,13 @@ public class AdminController : ControllerBase
         return match.Success && long.TryParse(match.Groups[1].Value, out var size) ? size : null;
     }
 
-    private string GetUptime()
+    private string GetUptimeArabic()
     {
         var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
-        return $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m";
+        var parts = new List<string>();
+        if (uptime.Days > 0) parts.Add($"{uptime.Days} يوم");
+        if (uptime.Hours > 0) parts.Add($"{uptime.Hours} ساعة");
+        if (uptime.Minutes > 0) parts.Add($"{uptime.Minutes} دقيقة");
+        return parts.Count > 0 ? string.Join("، ", parts) : "أقل من دقيقة";
     }
 }

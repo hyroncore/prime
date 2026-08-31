@@ -158,8 +158,6 @@ public record SystemHealthDto(
     string Status,
     long DatabaseLatencyMs,
     string? DatabaseError,
-    string DatabaseProvider,
-    string DatabaseName,
     string ServerUptime,
     string Environment,
     TableCountsDto TableCounts,
