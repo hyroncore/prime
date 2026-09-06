@@ -41,7 +41,7 @@ public class UsersController : ControllerBase
         var role = ValidRole(request.Role);
         if (role is null)
         {
-            return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: Admin, User" });
+            return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: مدير, مستخدم قياسي" });
         }
 
         if (!AuthController.IsValidPassword(request.InitialPassword))
@@ -75,7 +75,7 @@ public class UsersController : ControllerBase
         var role = ValidRole(request.Role);
         if (role is null)
         {
-            return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: Admin, User" });
+            return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: مدير, مستخدم قياسي" });
         }
 
         var currentId = CurrentUserId();
@@ -153,8 +153,21 @@ public class UsersController : ControllerBase
         return otherActiveAdmins > 0;
     }
 
-    private static string? ValidRole(string? role) =>
-        UserRoles.All.Contains(role) ? role : null;
+    private static string? ValidRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role)) return null;
+        var normalized = role.Trim();
+        // Map Arabic labels to internal role names
+        return normalized switch
+        {
+            "Admin" => UserRoles.Admin,
+            "Manager" => UserRoles.Manager,
+            "User" => UserRoles.User,
+            "مدير" => UserRoles.Manager,
+            "مستخدم قياسي" => UserRoles.User,
+            _ => null
+        };
+    }
 
     public static UserDto ToDto(AppUser user) => new(
         user.Id,

@@ -101,6 +101,7 @@ export const api = {
 
   users: {
     list: () => request<UserDto[]>('/users'),
+    detail: (id: number) => request<UserDto>(`/users/${id}`),
     create: (body: CreateUserRequest) =>
       request<UserDto>('/users', {
         method: 'POST',
