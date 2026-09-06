@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Prime.Api.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+115f5ab5592f6d3cfa4bed2bbb44978b944bf13a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7e3df2c9d86c29bec4983ed91489678651d70d9f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Prime.Api.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Prime.Api.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

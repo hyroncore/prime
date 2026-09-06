@@ -17,6 +17,7 @@ export function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [systemHealth, setSystemHealth] = useState<import('@/lib/types').SystemHealthDto | null>(null)
   const [backupHistory, setBackupHistory] = useState<import('@/lib/types').BackupHistoryDto[]>([])
+  const [liveUptime, setLiveUptime] = useState<string>('')
 
   useEffect(() => {
     let cancelled = false
@@ -25,7 +26,6 @@ export function AdminDashboardPage() {
         setLoading(true)
         const stats = await api.dashboard.adminStats()
         if (!cancelled) setAdminStats(stats)
-        // Clear global error on success
         useAppStore.getState().setError(null)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load admin dashboard')
@@ -36,6 +36,25 @@ export function AdminDashboardPage() {
     fetchStats()
     return () => { cancelled = true }
   }, [setAdminStats])
+
+  useEffect(() => {
+    if (!systemHealth?.serverStartedAt) return
+    const start = new Date(systemHealth.serverStartedAt).getTime()
+    const update = () => {
+      const diff = Date.now() - start
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+      if (days > 0) setLiveUptime(`${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`)
+      else if (hours > 0) setLiveUptime(`${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`)
+      else if (minutes > 0) setLiveUptime(`${minutes} دقيقة، ${seconds} ثانية`)
+      else setLiveUptime(`${seconds} ثانية`)
+    }
+    update()
+    const interval = setInterval(update, 1000)
+    return () => clearInterval(interval)
+  }, [systemHealth?.serverStartedAt])
 
   useEffect(() => {
     let cancelled = false
@@ -181,7 +200,7 @@ export function AdminDashboardPage() {
               </div>
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-muted-foreground text-xs">وقت تشغيل الخادم</p>
-                <p className="font-mono text-xs">{systemHealth?.serverUptime ?? '-'}</p>
+                <p className="font-mono text-xs">{liveUptime || systemHealth?.serverUptime || '-'}</p>
               </div>
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-muted-foreground text-xs">البيئة</p>

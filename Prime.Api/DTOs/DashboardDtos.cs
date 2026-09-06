@@ -163,7 +163,8 @@ public record SystemHealthDto(
     TableCountsDto TableCounts,
     DateTime? LastBackupAt,
     string? LastBackupNote,
-    DateTime CheckedAt);
+    DateTime CheckedAt,
+    DateTime ServerStartedAt);
 
 public record BackupHistoryDto(
     int Id,

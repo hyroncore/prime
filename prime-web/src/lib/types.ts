@@ -333,6 +333,7 @@ export interface SystemHealthDto {
   lastBackupAt: string | null
   lastBackupNote: string | null
   checkedAt: string
+  serverStartedAt: string
 }
 
 export interface BackupHistoryDto {

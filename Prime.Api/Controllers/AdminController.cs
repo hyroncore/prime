@@ -20,6 +20,7 @@ public class AdminController : ControllerBase
     private readonly DatabaseBackupService _backupService;
     private readonly ILogger<AdminController> _logger;
     private readonly IConfiguration _configuration;
+    private static readonly DateTime _serverStartedAt = DateTime.UtcNow;
 
     public AdminController(
         PrimeDbContext db, 
@@ -84,8 +85,10 @@ public class AdminController : ControllerBase
             totalPermissions
         );
 
-        // Determine health status - only Healthy or Unreachable
-        var status = dbHealthy ? "سليم" : "غير متاح";
+        // Determine health status
+        var status = dbHealthy
+            ? (latencyMs > 200 ? "متدهور" : "سليم")
+            : "غير متاح";
 
         // Get last backup info from audit logs or backup history
         var lastBackupLog = await _db.RequisitionAuditLogs
@@ -103,7 +106,8 @@ public class AdminController : ControllerBase
             tableCounts,
             lastBackupLog?.CreatedAt,
             lastBackupLog?.Notes,
-            DateTime.UtcNow
+            DateTime.UtcNow,
+            _serverStartedAt
         );
 
         return Ok(systemHealth);
