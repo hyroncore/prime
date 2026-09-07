@@ -35,7 +35,6 @@ export function UserFormPage() {
 
   const { toast } = useToast()
 
-  const [formName, setFormName] = useState('')
   const [formUsername, setFormUsername] = useState('')
   const [formRole, setFormRole] = useState<FormRole>('User')
   const [formActive, setFormActive] = useState(true)
@@ -50,7 +49,6 @@ export function UserFormPage() {
       const loadUser = async () => {
         try {
           const user = await api.users.detail(userId!)
-          setFormName(user.displayName)
           setFormUsername(user.username)
           setFormRole(user.role as FormRole)
           setFormActive(user.isActive)
@@ -60,7 +58,6 @@ export function UserFormPage() {
       }
       loadUser()
     } else {
-      setFormName('')
       setFormUsername('')
       setFormRole('User')
       setFormActive(true)
@@ -74,10 +71,6 @@ export function UserFormPage() {
     })
 
   const handleSubmit = async () => {
-    if (!formName.trim()) {
-      setFormError('اسم العرض مطلوب')
-      return
-    }
     if (!isEditing && !formUsername.trim()) {
       setFormError('اسم المستخدم مطلوب')
       return
@@ -97,7 +90,7 @@ export function UserFormPage() {
 
       if (isEditing) {
         await updateUser(userId!, {
-          displayName: formName.trim(),
+          displayName: formUsername.trim(),
           role: role as any,
           isActive: formActive,
         })
@@ -109,7 +102,7 @@ export function UserFormPage() {
         }
         await createUser({
           username: formUsername.trim(),
-          displayName: formName.trim(),
+          displayName: formUsername.trim(),
           role: role as any,
           initialPassword: formPassword,
         })
@@ -128,7 +121,6 @@ export function UserFormPage() {
       const loadUser = async () => {
         try {
           const user = await api.users.detail(userId!)
-          setFormName(user.displayName)
           setFormUsername(user.username)
           setFormRole(user.role as FormRole)
           setFormActive(user.isActive)
@@ -138,7 +130,6 @@ export function UserFormPage() {
       }
       loadUser()
     } else {
-      setFormName('')
       setFormUsername('')
       setFormRole('User')
       setFormActive(true)
@@ -147,7 +138,7 @@ export function UserFormPage() {
 
   const pageTitle = isEditing ? 'تعديل المستخدم' : 'إضافة مستخدم جديد'
   const pageDescription = isEditing
-    ? 'تعديل اسم العرض والدور وحالة الحساب'
+    ? 'تعديل الدور وحالة الحساب'
     : 'إنشاء حساب دخول جديد مع صلاحية دور محدد'
 
   return (
@@ -162,7 +153,7 @@ export function UserFormPage() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle className="text-sm font-black">{pageTitle}</CardTitle>
           <CardDescription className="text-xs">{pageDescription}</CardDescription>
@@ -180,18 +171,6 @@ export function UserFormPage() {
               className="h-9 text-sm"
               disabled={isEditing}
               required={!isEditing}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="displayName">اسم العرض</Label>
-            <Input
-              id="displayName"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="مثال: م. أحمد سالم"
-              className="h-9 text-sm"
-              required
             />
           </div>
 
