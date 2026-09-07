@@ -4,7 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useAuthStore } from '@/store/useAuthStore'
 import { api } from '@/lib/api'
@@ -163,37 +170,42 @@ export function UserFormPage() {
 
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label>اسم المستخدم</Label>
+            <Label htmlFor="username">اسم المستخدم</Label>
             <Input
+              id="username"
               dir="ltr"
               value={formUsername}
               onChange={(e) => setFormUsername(e.target.value)}
               placeholder="username"
               className="h-9 text-sm"
               disabled={isEditing}
+              required={!isEditing}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>اسم العرض</Label>
+            <Label htmlFor="displayName">اسم العرض</Label>
             <Input
+              id="displayName"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               placeholder="مثال: م. أحمد سالم"
               className="h-9 text-sm"
+              required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>الدور</Label>
+              <Label htmlFor="role">الدور</Label>
               <Select
                 value={formRole}
                 onValueChange={(v) => setFormRole(v as FormRole)}
                 disabled={isSelf}
+                required
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
+                  <SelectValue placeholder="اختر الدور" />
                 </SelectTrigger>
                 <SelectContent>
                   {ROLE_OPTIONS.map((opt) => (
@@ -207,43 +219,42 @@ export function UserFormPage() {
 
             <div className="space-y-1.5">
               <Label>حالة الحساب</Label>
-              <div className="flex h-9 items-center gap-2 rounded-lg border border-border px-3">
-                <input
-                  id="user-active"
-                  type="checkbox"
-                  checked={formActive}
-                  onChange={(e) => setFormActive(e.target.checked)}
-                  disabled={isSelf}
-                  className="h-4 w-4 accent-[#415a77]"
-                />
-                <label htmlFor="user-active" className="text-xs font-semibold text-muted-foreground">
-                  حساب نشط
-                </label>
-              </div>
+              <Switch
+                id="user-active"
+                checked={formActive}
+                onCheckedChange={(checked) => setFormActive(checked)}
+                disabled={isSelf}
+                size="default"
+              >
+                حساب نشط
+              </Switch>
             </div>
           </div>
 
           {!isEditing && (
             <div className="space-y-1.5">
-              <Label>كلمة المرور</Label>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input
+                id="password"
                 dir="ltr"
                 type="password"
                 value={formPassword}
                 onChange={(e) => setFormPassword(e.target.value)}
                 placeholder="8 أحرف على الأقل"
                 className="h-9 text-sm"
+                required
+                minLength={8}
               />
             </div>
           )}
 
           {formError && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400" role="alert">
               {formError}
             </p>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pt-2">
             <Button
               onClick={() => void handleSubmit()}
               disabled={formBusy}
