@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,10 +28,17 @@ export function ClientsPage() {
   const loading = useAppStore((s) => s.loading)
   const openPlantDialog = useAppStore((s) => s.openPlantDialog)
   const deletePlant = useAppStore((s) => s.deletePlant)
+  const fetchClients = useAppStore((s) => s.fetchClients)
+  const fetchPlants = useAppStore((s) => s.fetchPlants)
   const role = useAuthStore((s) => s.user?.role)
   const isAdmin = role === 'Admin'
   const isManager = role === 'Manager'
   const canManageClients = isAdmin || isManager
+
+  useEffect(() => {
+    if (clients.length === 0) void fetchClients()
+    if (plants.length === 0) void fetchPlants()
+  }, [clients.length, plants.length, fetchClients, fetchPlants])
 
   const [searchParams, setSearchParams] = useSearchParams()
   const companyParam = searchParams.get('company')
