@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,7 @@ export function SettingsPage() {
   const openClientDialog = useAppStore((s) => s.openClientDialog)
   const openClientEditDialog = useAppStore((s) => s.openClientEditDialog)
   const deleteClient = useAppStore((s) => s.deleteClient)
+  const fetchClients = useAppStore((s) => s.fetchClients)
   const role = useAuthStore((s) => s.user?.role)
   const isAdmin = role === 'Admin'
   const isManager = role === 'Manager'
@@ -62,6 +63,12 @@ export function SettingsPage() {
   const availableTabs: readonly ('general' | 'companies' | 'system')[] = canManageSettings
     ? ['general', 'companies', 'system']
     : ['general']
+
+  useEffect(() => {
+    if (clients.length === 0) {
+      void fetchClients()
+    }
+  }, [clients.length, fetchClients])
 
   const successToast = (title: string) =>
     toast({
