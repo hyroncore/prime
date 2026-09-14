@@ -28,7 +28,10 @@ export function ClientsPage() {
   const loading = useAppStore((s) => s.loading)
   const openPlantDialog = useAppStore((s) => s.openPlantDialog)
   const deletePlant = useAppStore((s) => s.deletePlant)
-  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'Admin'
+  const isManager = role === 'Manager'
+  const canManageClients = isAdmin || isManager
 
   const [searchParams, setSearchParams] = useSearchParams()
   const companyParam = searchParams.get('company')
@@ -137,12 +140,14 @@ export function ClientsPage() {
             المصانع المتعامل معها والجهة المرتبطة بها لكل عميل
           </p>
         </div>
-        <Button
-          onClick={() => openPlantDialog()}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-        >
-          + إضافة عميل جديد
-        </Button>
+        {canManageClients && (
+          <Button
+            onClick={() => openPlantDialog()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+          >
+            + إضافة عميل جديد
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
@@ -193,7 +198,15 @@ export function ClientsPage() {
               ? 'جرّب تعديل البحث أو إزالة تصفية الجهة'
               : 'أضف أول عميل لبدء تسجيل طلبات الشراء الخاصة به'}
           </p>
-          {companyFilter || searchTerm.trim() ? (
+          {(!companyFilter && !searchTerm.trim() && canManageClients) && (
+            <Button
+              onClick={() => openPlantDialog()}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+            >
+              + إضافة عميل جديد
+            </Button>
+          )}
+          {(companyFilter || searchTerm.trim()) && (
             <button
               onClick={() => {
                 setSearchTerm('')
@@ -203,13 +216,6 @@ export function ClientsPage() {
             >
               مسح التصفية
             </button>
-          ) : (
-            <Button
-              onClick={() => openPlantDialog()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-            >
-              + إضافة عميل جديد
-            </Button>
           )}
         </div>
       ) : (

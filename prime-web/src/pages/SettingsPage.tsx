@@ -42,7 +42,10 @@ export function SettingsPage() {
   const openClientDialog = useAppStore((s) => s.openClientDialog)
   const openClientEditDialog = useAppStore((s) => s.openClientEditDialog)
   const deleteClient = useAppStore((s) => s.deleteClient)
-  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'Admin'
+  const isManager = role === 'Manager'
+  const canManageSettings = isAdmin || isManager
 
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
@@ -55,6 +58,10 @@ export function SettingsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const { toast } = useToast()
+
+  const availableTabs: readonly ('general' | 'companies' | 'system')[] = canManageSettings
+    ? ['general', 'companies', 'system']
+    : ['general']
 
   const successToast = (title: string) =>
     toast({
@@ -132,18 +139,22 @@ export function SettingsPage() {
           >
             عام
           </TabsTrigger>
-          <TabsTrigger
-            value="companies"
-            className="rounded-none border-b-2 border-b-transparent bg-transparent px-1 py-3 text-sm font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-          >
-            الجهات والشركات
-          </TabsTrigger>
-          <TabsTrigger
-            value="system"
-            className="rounded-none border-b-2 border-b-transparent bg-transparent px-1 py-3 text-sm font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-          >
-            النظام
-          </TabsTrigger>
+          {availableTabs.includes('companies') && (
+            <TabsTrigger
+              value="companies"
+              className="rounded-none border-b-2 border-b-transparent bg-transparent px-1 py-3 text-sm font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+            >
+              الجهات والشركات
+            </TabsTrigger>
+          )}
+          {availableTabs.includes('system') && (
+            <TabsTrigger
+              value="system"
+              className="rounded-none border-b-2 border-b-transparent bg-transparent px-1 py-3 text-sm font-bold text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+            >
+              النظام
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="general" className="mt-8">
@@ -213,12 +224,14 @@ export function SettingsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-9 text-sm max-w-xs"
               />
-              <Button
-                onClick={openClientDialog}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold h-8"
-              >
-                + إضافة جهة
-              </Button>
+              {canManageSettings && (
+                <Button
+                  onClick={openClientDialog}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold h-8"
+                >
+                  + إضافة جهة
+                </Button>
+              )}
             </div>
           </div>
 
@@ -228,12 +241,14 @@ export function SettingsPage() {
               <p className="text-sm text-muted-foreground max-w-sm">
                 أضف الجهة / الشركة المتعامل معها أولاً، ثم سجّل عملاءها من صفحة العملاء
               </p>
-              <Button
-                onClick={openClientDialog}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-              >
-                + إضافة جهة
-              </Button>
+              {canManageSettings && (
+                <Button
+                  onClick={openClientDialog}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+                >
+                  + إضافة جهة
+                </Button>
+              )}
             </div>
           ) : (
             <Table>

@@ -3,21 +3,21 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
 const USER_SECTIONS = [
-  { to: '/dashboard/user', label: 'لوحة تحكمي' },
-  { to: '/requisitions', label: 'طلباتي' },
+  { to: '/dashboard/user', label: 'لوحة المعلومات' },
+  { to: '/requisitions', label: 'طلبات الشراء' },
   { to: '/clients', label: 'العملاء' },
   { to: '/settings', label: 'الإعدادات' },
 ]
 
 const MANAGER_SECTIONS = [
-  { to: '/dashboard/manager', label: 'لوحة تحكم الفريق' },
-  { to: '/requisitions', label: 'طلبات الفريق' },
+  { to: '/dashboard/manager', label: 'لوحة معلومات الفريق' },
+  { to: '/requisitions', label: 'طلبات الشراء' },
   { to: '/clients', label: 'العملاء' },
   { to: '/settings', label: 'الإعدادات' },
 ]
 
 const ADMIN_SECTIONS = [
-  { to: '/dashboard/admin', label: 'لوحة تحكم النظام' },
+  { to: '/dashboard/admin', label: 'لوحة معلومات النظام' },
   { to: '/clients', label: 'العملاء' },
   { to: '/users', label: 'المستخدمون' },
   { to: '/settings', label: 'الإعدادات' },
