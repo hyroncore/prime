@@ -224,8 +224,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openClientDialog: () => set({ clientDialogOpen: true, editingClient: null }),
   closeClientDialog: () => set({ clientDialogOpen: false, editingClient: null }),
-  openPlantDialog: (plant) =>
-    set({ plantDialogOpen: true, editingPlant: plant ?? null }),
+  openPlantDialog: async (plant) => {
+    const { clients, fetchClients } = get()
+    if (clients.length === 0) await fetchClients()
+    set({ plantDialogOpen: true, editingPlant: plant ?? null })
+  },
   closePlantDialog: () => set({ plantDialogOpen: false, editingPlant: null }),
   openClientEditDialog: (client) =>
     set({ clientDialogOpen: true, editingClient: client }),
