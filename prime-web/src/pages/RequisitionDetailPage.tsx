@@ -36,7 +36,8 @@ export function RequisitionDetailPage() {
 
   const updateRequisitionStatus = useAppStore((s) => s.updateRequisitionStatus)
   const deleteRequisition = useAppStore((s) => s.deleteRequisition)
-  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'Admin'
 
   const { toast } = useToast()
 
@@ -221,7 +222,11 @@ export function RequisitionDetailPage() {
     )
   }
 
-  const allowed = ALLOWED_TRANSITIONS[detail.status] ?? []
+  const allowed = (ALLOWED_TRANSITIONS[detail.status] ?? []).filter((target) => {
+    if (role === 'Admin' || role === 'Manager') return true
+    // Standard user can only transition NEW -> REVIEW
+    return detail.status === 'NEW' && target === 'REVIEW'
+  })
 
   return (
     <div dir="rtl" className="space-y-8">
