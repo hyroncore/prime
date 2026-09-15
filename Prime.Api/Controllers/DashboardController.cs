@@ -309,25 +309,35 @@ public class DashboardController : ControllerBase
             var userId = GetCurrentUserId();
             var isAdmin = User.IsInRole("Admin");
 
-            var teamUserIds = new List<int> { userId };
-            if (!isAdmin)
-            {
-                var subordinates = await _db.Users
-                    .Where(u => u.ManagerId == userId && u.IsActive)
-                    .Select(u => u.Id)
-                    .ToListAsync();
-                teamUserIds.AddRange(subordinates);
-            }
-            else
-            {
-                var allUsers = await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync();
-                teamUserIds = allUsers;
-            }
+            // Get subordinates for this manager
+            var subordinateIds = await _db.Users
+                .Where(u => u.ManagerId == userId && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
 
-            var requisitions = await _db.PurchaseRequisitions
+            var allTeamUserIds = isAdmin
+                ? await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync()
+                : subordinateIds;
+
+            // For managers: show requisitions in REVIEW status submitted by their subordinates
+            // For admins: show all requisitions
+            var requisitionsQuery = _db.PurchaseRequisitions
                 .Include(r => r.Plant)!
                     .ThenInclude(p => p!.Client)
-                .Where(r => r.CreatedById.HasValue && teamUserIds.Contains(r.CreatedById.Value))
+                .AsQueryable();
+
+            if (!isAdmin)
+            {
+                // Show requisitions in REVIEW status created by subordinates
+                requisitionsQuery = requisitionsQuery
+                    .Where(r => r.Status == "REVIEW" && r.CreatedById.HasValue && subordinateIds.Contains(r.CreatedById.Value));
+            }
+
+            var requisitions = await requisitionsQuery.ToListAsync();
+
+            // For stats (won/lost), query ALL requisitions from subordinates
+            var allTeamRequisitions = await _db.PurchaseRequisitions
+                .Where(r => r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
                 .ToListAsync();
 
             var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
@@ -335,8 +345,8 @@ public class DashboardController : ControllerBase
             var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
             var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
             var teamVolume = requisitions.Count;
-            var wonCount = requisitions.Count(r => r.Status == "WON");
-            var lostCount = requisitions.Count(r => r.Status == "LOST");
+            var wonCount = allTeamRequisitions.Count(r => r.Status == "WON");
+            var lostCount = allTeamRequisitions.Count(r => r.Status == "LOST");
             var decided = wonCount + lostCount;
             var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
 
@@ -362,12 +372,14 @@ public class DashboardController : ControllerBase
                 .ToList();
 
             var teamUsers = await _db.Users
-                .Where(u => teamUserIds.Contains(u.Id))
+                .Where(u => allTeamUserIds.Contains(u.Id))
                 .ToListAsync();
 
             var teamPerformance = teamUsers
                 .Select(u => {
-                    var userReqs = requisitions.Where(r => r.CreatedById == u.Id).ToList();
+                    var userReqs = _db.PurchaseRequisitions
+                        .Where(r => r.CreatedById == u.Id)
+                        .ToList();
                     var userOpen = userReqs.Count(r => openStatuses.Contains(r.Status));
                     var userRevise = userReqs.Count(r => r.Status == "REVISE");
                     var userSubmitted = userReqs.Count(r => r.Status == "SUBMITTED");
