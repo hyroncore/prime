@@ -64,8 +64,8 @@ public class DashboardController : ControllerBase
                 r.Id,
                 r.Identifier,
                 r.Title,
-                r.Plant!.Client!.Name,
-                r.Plant.PlantName,
+                r.Plant?.Client?.Name ?? "—",
+                r.Plant?.PlantName ?? "—",
                 r.DueDate,
                 r.Status,
                 (int)Math.Ceiling((r.DueDate - now).TotalDays)))
@@ -84,6 +84,7 @@ public class DashboardController : ControllerBase
             .ToList();
 
         var clientBreakdown = requisitions
+            .Where(r => r.Plant != null && r.Plant.Client != null)
             .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
             .Select(g => new ClientBreakdownDto(
                 g.Key.ClientId,
@@ -121,6 +122,7 @@ public class DashboardController : ControllerBase
 
         // Use SQL-friendly query for top clients
         var topClients = await _db.PurchaseRequisitions
+            .Where(r => r.Plant != null && r.Plant.Client != null)
             .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
             .Select(g => new TopClientDto(
                 g.Key.ClientId,
@@ -193,8 +195,8 @@ public class DashboardController : ControllerBase
                 r.Id,
                 r.Identifier,
                 r.Title,
-                r.Plant!.Client!.Name,
-                r.Plant.PlantName,
+                r.Plant?.Client?.Name ?? "—",
+                r.Plant?.PlantName ?? "—",
                 r.DueDate,
                 r.Status,
                 (int)Math.Ceiling((r.DueDate - DateTime.UtcNow).TotalDays)))
@@ -238,6 +240,7 @@ public class DashboardController : ControllerBase
         
         var activeClientIds = await _db.PurchaseRequisitions
             .Where(r => r.Status == newStatus || r.Status == reviewStatus || r.Status == processingStatus)
+            .Where(r => r.Plant != null)
             .Select(r => r.Plant!.ClientId)
             .Distinct()
             .ToListAsync();
@@ -257,6 +260,7 @@ public class DashboardController : ControllerBase
 
         // Materialize requisitions first, then group in memory (small dataset)
         var requisitions = await _db.PurchaseRequisitions
+            .Where(r => r.Plant != null && r.Plant.Client != null)
             .Select(r => new { r.Plant!.ClientId, r.Plant.Client!.Name, r.Status })
             .ToListAsync();
 
@@ -327,7 +331,7 @@ public class DashboardController : ControllerBase
             .Where(r => r.Status == "REVIEW")
             .Select(r => new UrgentRequisitionDto(
                 r.Id, r.Identifier, r.Title, 
-                r.Plant!.Client!.Name, r.Plant!.PlantName, 
+                r.Plant?.Client?.Name ?? "—", r.Plant?.PlantName ?? "—", 
                 r.DueDate, r.Status, 
                 (int)Math.Ceiling((r.DueDate - DateTime.UtcNow).TotalDays)))
             .OrderBy(r => r.DueDate)
@@ -337,7 +341,7 @@ public class DashboardController : ControllerBase
             .Where(r => r.Status == "SUBMITTED")
             .Select(r => new PendingSignOffDto(
                 r.Id, r.Identifier, r.Title, 
-                r.Plant!.PlantName, r.Plant!.Client!.Name, 
+                r.Plant?.PlantName ?? "—", r.Plant?.Client?.Name ?? "—", 
                 r.SubmittedAt ?? DateTime.MinValue))
             .OrderBy(r => r.SubmittedAt)
             .ToList();
