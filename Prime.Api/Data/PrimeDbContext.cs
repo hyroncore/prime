@@ -82,14 +82,14 @@ public class PrimeDbContext : DbContext
                   .HasForeignKey(r => r.SubmittedById)
                   .OnDelete(DeleteBehavior.SetNull);
 
+            entity.HasOne(r => r.ProcessedBy)
+                  .WithMany()
+                  .HasForeignKey(r => r.ProcessedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasOne(r => r.RevisedBy)
                   .WithMany()
                   .HasForeignKey(r => r.RevisedById)
-                  .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasOne(r => r.ApprovedBy)
-                  .WithMany()
-                  .HasForeignKey(r => r.ApprovedById)
                   .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(r => r.OutcomeRecordedBy)
@@ -105,11 +105,6 @@ public class PrimeDbContext : DbContext
             entity.HasOne(r => r.ArchivedBy)
                   .WithMany()
                   .HasForeignKey(r => r.ArchivedById)
-                  .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasOne(r => r.CreatedBy)
-                  .WithMany()
-                  .HasForeignKey(r => r.CreatedById)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
