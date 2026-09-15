@@ -291,12 +291,14 @@ export function ClientsPage() {
                 </TableCell>
                 <TableCell className="px-5 py-3.5 text-center">
                   <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => openPlantDialog(plant)}
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      تعديل
-                    </button>
+                    {canManageClients && (
+                      <button
+                        onClick={() => openPlantDialog(plant)}
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        تعديل
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         onClick={() => {

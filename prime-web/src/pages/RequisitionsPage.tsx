@@ -70,7 +70,9 @@ export function RequisitionsPage() {
   const resetFilters = useAppStore((s) => s.resetFilters)
   const openDrawer = useAppStore((s) => s.openDrawer)
   const deleteRequisition = useAppStore((s) => s.deleteRequisition)
-  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'Admin'
+  const canEdit = isAdmin || role === 'Manager'
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
@@ -469,9 +471,11 @@ export function RequisitionsPage() {
                             <DropdownMenuItem onClick={() => navigate(`/requisitions/${row.id}`)}>
                               عرض
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/requisitions/${row.id}/edit`)}>
-                              تعديل
-                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => navigate(`/requisitions/${row.id}/edit`)}>
+                                تعديل
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             {isAdmin && (
                               <DropdownMenuItem
