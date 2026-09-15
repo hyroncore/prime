@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Prime.Api.Data;
 using Prime.Api.Models;
 
@@ -16,9 +17,9 @@ public static class RequisitionCodeGenerator
         => $"{plantShortCode.ToUpperInvariant()}-{sectorCode}-{sequenceValue.ToString("X4")}";
 
     /// <summary>
-    /// Atomically retrieves the next hex sequence for the (plant, sector) pair.
-    /// The counter lives in the RequisitionSequences table and is incremented
-    /// inside a transaction, serializing concurrent PR creations.
+    /// Atomically retrieves the next hex sequence for the (plant, sector) pair using
+    /// a single PostgreSQL INSERT ... ON CONFLICT DO UPDATE ... RETURNING statement.
+    /// This is safe with EnableRetryOnFailure — no manual transaction needed.
     /// </summary>
     public static async Task<(string Identifier, int Sequence)> NextIdentifierAsync(
         PrimeDbContext db,
@@ -27,31 +28,21 @@ public static class RequisitionCodeGenerator
     {
         var plantCode = plantShortCode.ToUpperInvariant();
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
-
-        var sequence = await db.RequisitionSequences
-            .FirstOrDefaultAsync(s => s.PlantShortCode == plantCode && s.SectorCode == sectorCode);
-
-        int next;
-        if (sequence is null)
+        // Atomic upsert: insert row with value=1, or increment existing row's value.
+        // Returns the new current_value in a single round-trip.
+        var next = await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            sequence = new RequisitionSequence
-            {
-                PlantShortCode = plantCode,
-                SectorCode = sectorCode,
-                CurrentValue = 1
-            };
-            db.RequisitionSequences.Add(sequence);
-            next = 1;
-        }
-        else
-        {
-            sequence.CurrentValue += 1;
-            next = sequence.CurrentValue;
-        }
+            var result = await db.Database.SqlQueryRaw<int>(
+                @"INSERT INTO ""RequisitionSequences"" (""PlantShortCode"", ""SectorCode"", ""CurrentValue"")
+                  VALUES ({0}, {1}, 1)
+                  ON CONFLICT (""PlantShortCode"", ""SectorCode"")
+                  DO UPDATE SET ""CurrentValue"" = ""RequisitionSequences"".""CurrentValue"" + 1
+                  RETURNING ""CurrentValue""",
+                plantCode, sectorCode)
+                .ToListAsync();
 
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+            return result[0];
+        });
 
         if (next > MaxHexSequence)
         {
