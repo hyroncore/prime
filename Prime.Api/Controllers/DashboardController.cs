@@ -319,29 +319,32 @@ public class DashboardController : ControllerBase
                 ? await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync()
                 : subordinateIds;
 
-            // For managers: show requisitions in REVIEW status submitted by their subordinates
-            // For admins: show all requisitions
-            var requisitionsQuery = _db.PurchaseRequisitions
+            // Actionable statuses for manager dashboard
+            var managerActionableStatuses = new[] { "REVIEW", "SUBMITTED" };
+            
+            // Materialize team user IDs to a HashSet for O(1) lookup
+            var teamUserIdSet = new HashSet<int>(allTeamUserIds);
+
+            // Materialize all requisitions with includes, then filter in memory
+            // This avoids LINQ translation issues with Contains/Join on SQLite
+            var allRequisitions = await _db.PurchaseRequisitions
                 .Include(r => r.Plant)!
                     .ThenInclude(p => p!.Client)
-                .AsQueryable();
-
-            if (!isAdmin)
-            {
-                // Show requisitions in REVIEW status created by subordinates
-                requisitionsQuery = requisitionsQuery
-                    .Where(r => r.Status == "REVIEW" && r.CreatedById.HasValue && subordinateIds.Contains(r.CreatedById.Value));
-            }
-
-            var requisitions = await requisitionsQuery.ToListAsync();
-
-            // For stats (won/lost), query ALL requisitions from subordinates
-            var allTeamRequisitions = await _db.PurchaseRequisitions
-                .Where(r => r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .Where(r => r.CreatedById.HasValue)
                 .ToListAsync();
 
-            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
-            var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
+            // Filter in memory for actionable requisitions from team members
+            var requisitions = allRequisitions
+                .Where(r => managerActionableStatuses.Contains(r.Status)
+                    && teamUserIdSet.Contains(r.CreatedById.Value))
+                .ToList();
+
+            // For stats (won/lost), filter all requisitions from team members
+            var allTeamRequisitions = allRequisitions
+                .Where(r => teamUserIdSet.Contains(r.CreatedById.Value))
+                .ToList();
+
+            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING", "SUBMITTED" };
             var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
             var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
             var teamVolume = requisitions.Count;
