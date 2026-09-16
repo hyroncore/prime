@@ -4,6 +4,8 @@ export type RequisitionStatus =
   | 'DECLINED'
   | 'PROCESSING'
   | 'SUBMITTED'
+  | 'APPROVED'
+  | 'REVISE'
   | 'WON'
   | 'LOST'
 
@@ -386,4 +388,10 @@ export interface UpdateUserRequest {
 
 export interface ResetPasswordRequest {
   newPassword: string
+}
+
+export interface WorkflowCountsDto {
+  review: number
+  internal: number
+  archive: number
 }

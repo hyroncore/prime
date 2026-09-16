@@ -419,6 +419,45 @@ public class DashboardController : ControllerBase
         }
     }
 
+    [HttpGet("workflow-counts")]
+    [Authorize(Policy = "req:review_action")]
+    public async Task<ActionResult<WorkflowCountsDto>> GetWorkflowCounts()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var isAdmin = User.IsInRole("Admin");
+
+            var subordinateIds = await _db.Users
+                .Where(u => u.ManagerId == userId && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var allTeamUserIds = isAdmin
+                ? await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync()
+                : subordinateIds;
+
+            var reviewCount = await _db.PurchaseRequisitions
+                .Where(r => r.Status == "REVIEW" && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .CountAsync();
+
+            var submittedCount = await _db.PurchaseRequisitions
+                .Where(r => r.Status == "SUBMITTED" && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .CountAsync();
+
+            var archiveCount = await _db.PurchaseRequisitions
+                .Where(r => new[] { "DECLINED", "APPROVED", "REVISE" }.Contains(r.Status) && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .CountAsync();
+
+            return Ok(new WorkflowCountsDto(reviewCount, submittedCount, archiveCount));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching workflow counts");
+            return StatusCode(500, new { message = "حدث خطأ أثناء جلب إحصائيات تدفق العمل", error = ex.Message });
+        }
+    }
+
     private int GetCurrentUserId()
     {
         var idClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);

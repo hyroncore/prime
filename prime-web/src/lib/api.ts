@@ -26,6 +26,7 @@ import type {
   UpdateUserRequest,
   UserDashboardStatsDto,
   UserDto,
+  WorkflowCountsDto,
 } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
@@ -128,6 +129,7 @@ export const api = {
     userStats: () => request<UserDashboardStatsDto>('/dashboard/user-stats'),
     managerStats: () => request<ManagerDashboardStatsDto>('/dashboard/manager-stats'),
     adminStats: () => request<AdminDashboardStatsDto>('/dashboard/admin-stats'),
+    workflowCounts: () => request<WorkflowCountsDto>('/dashboard/workflow-counts'),
   },
 
   admin: {
@@ -142,12 +144,16 @@ export const api = {
       plantId?: number
       sectorCode?: string
       status?: string
+      page?: number
+      pageSize?: number
     }) => {
       const qs = new URLSearchParams()
       if (params?.search) qs.set('search', params.search)
       if (params?.plantId) qs.set('plantId', String(params.plantId))
       if (params?.sectorCode) qs.set('sectorCode', params.sectorCode)
       if (params?.status) qs.set('status', params.status)
+      if (params?.page) qs.set('page', String(params.page))
+      if (params?.pageSize) qs.set('pageSize', String(params.pageSize))
       const query = qs.toString()
       return request<RequisitionDto[]>(`/requisitions${query ? `?${query}` : ''}`)
     },
@@ -198,6 +204,28 @@ export const api = {
       remove: (attachmentId: number) =>
         request<void>(`/attachments/${attachmentId}`, {
           method: 'DELETE',
+        }),
+    },
+    workflow: {
+      approveReview: (id: number, notes: string) =>
+        request<RequisitionDto>(`/requisitions/${id}/review`, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'approve', notes }),
+        }),
+      declineReview: (id: number, notes: string) =>
+        request<RequisitionDto>(`/requisitions/${id}/review`, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'decline', notes }),
+        }),
+      approveInternal: (id: number, notes: string) =>
+        request<RequisitionDto>(`/requisitions/${id}/approve-internal`, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'approve', notes }),
+        }),
+      requestRevision: (id: number, notes: string) =>
+        request<RequisitionDto>(`/requisitions/${id}/request-revision`, {
+          method: 'POST',
+          body: JSON.stringify({ notes }),
         }),
     },
   },

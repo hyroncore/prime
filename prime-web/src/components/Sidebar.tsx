@@ -11,6 +11,7 @@ const USER_SECTIONS = [
 
 const MANAGER_SECTIONS = [
   { to: '/dashboard/manager', label: 'لوحة معلومات الفريق' },
+  { to: '/workflow', label: 'تدفق العمل' },
   { to: '/requisitions', label: 'طلبات الشراء' },
   { to: '/clients', label: 'العملاء' },
   { to: '/settings', label: 'الإعدادات' },

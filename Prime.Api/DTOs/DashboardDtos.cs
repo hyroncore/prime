@@ -143,6 +143,11 @@ public record AdminDashboardStatsDto(
     List<RecentUserDto> RecentUsers,
     List<TopClientDto> TopClients);
 
+public record WorkflowCountsDto(
+    int Review,
+    int Internal,
+    int Archive);
+
 public record TableCountsDto(
     int Users,
     int ActiveUsers,

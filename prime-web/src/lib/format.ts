@@ -42,6 +42,16 @@ export const STATUS_META: Record<
     badgeClass:
       'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800',
   },
+  APPROVED: {
+    label: 'معتمد',
+    badgeClass:
+      'bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800',
+  },
+  REVISE: {
+    label: 'تعديل مطلوب',
+    badgeClass:
+      'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800',
+  },
   WON: {
     label: 'فائزة',
     badgeClass:
@@ -63,7 +73,9 @@ export const ALLOWED_TRANSITIONS: Record<RequisitionStatus, RequisitionStatus[]>
   NEW: ['REVIEW'],
   REVIEW: ['PROCESSING', 'DECLINED'],
   PROCESSING: ['SUBMITTED'],
-  SUBMITTED: ['WON', 'LOST'],
+  SUBMITTED: ['APPROVED', 'REVISE'],
+  APPROVED: ['WON', 'LOST'],
+  REVISE: ['REVIEW'],
   DECLINED: [],
   WON: [],
   LOST: [],

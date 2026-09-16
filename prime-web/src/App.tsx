@@ -25,6 +25,7 @@ const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m
 const UserFormPage = lazy(() => import('@/pages/UserFormPage').then(m => ({ default: m.UserFormPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const WorkflowPage = lazy(() => import('@/pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })))
 
 function PageSkeleton() {
   return (
@@ -123,6 +124,12 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function RequireManager({ children }: { children: React.ReactNode }) {
+  const role = useAuthStore((s) => s.user?.role)
+  if (role !== 'Manager' && role !== 'Admin') return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 function NotificationsPoller() {
   const fetchNotifications = useAppStore((s) => s.fetchNotifications)
 
@@ -196,6 +203,14 @@ export default function App() {
                 />
                 <Route path="/account" element={<Suspense fallback={<PageSkeleton />}> <AccountPage /> </Suspense>} />
                 <Route path="/settings" element={<Suspense fallback={<PageSkeleton />}> <SettingsPage /> </Suspense>} />
+                <Route
+                  path="/workflow"
+                  element={
+                    <RequireManager>
+                      <Suspense fallback={<PageSkeleton />}> <WorkflowPage /> </Suspense>
+                    </RequireManager>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>
