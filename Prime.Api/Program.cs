@@ -101,6 +101,7 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<DatabaseBackupService>();
+builder.Services.AddScoped<MultiTenantService>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 builder.Services.AddHostedService<ArchivalService>();
 builder.Services.AddHostedService<NotificationScheduler>();

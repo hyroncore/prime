@@ -13,21 +13,26 @@ namespace Prime.Api.Controllers;
 public class ClientsController : ControllerBase
 {
     private readonly PrimeDbContext _db;
+    private readonly MultiTenantService _multiTenant;
 
-    public ClientsController(PrimeDbContext db)
+    public ClientsController(PrimeDbContext db, MultiTenantService multiTenant)
     {
         _db = db;
+        _multiTenant = multiTenant;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<ClientDto>>> List()
     {
-        var clients = await _db.Clients
+        var query = _db.Clients
             .Include(c => c.Plants)
-            .ToListAsync();
+            .AsQueryable();
+
+        query = _multiTenant.ApplyCompanyScope(query);
+
+        var clients = await query.ToListAsync();
 
         var requisitions = await _db.PurchaseRequisitions
-            .Include(r => r.Plant)
             .ToListAsync();
 
         var openStatuses = new[]
@@ -73,6 +78,12 @@ public class ClientsController : ControllerBase
             return BadRequest(new { message = "يوجد جهة بهذا الاسم مسبقاً." });
         }
 
+        var companyIdClaim = User.FindFirst("company_id")?.Value;
+        if (!int.TryParse(companyIdClaim, out var companyId))
+        {
+            return BadRequest(new { message = "غير مصرح - يرجى تسجيل الدخول كمسؤول شركة" });
+        }
+
         var plants = new List<Plant>();
         foreach (var plantRequest in request.Plants ?? new List<CreatePlantRequest>())
         {
@@ -91,7 +102,8 @@ public class ClientsController : ControllerBase
             plants.Add(new Plant
             {
                 PlantName = plantRequest.PlantName.Trim(),
-                ShortCode = shortCode
+                ShortCode = shortCode,
+                CompanyId = companyId
             });
         }
 
@@ -100,7 +112,8 @@ public class ClientsController : ControllerBase
             Name = request.Name.Trim(),
             PrimaryContactName = request.PrimaryContactName?.Trim(),
             PrimaryContactPhone = request.PrimaryContactPhone?.Trim(),
-            Plants = plants
+            Plants = plants,
+            CompanyId = companyId
         };
 
         _db.Clients.Add(client);
@@ -125,7 +138,10 @@ public class ClientsController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateClientRequest request)
     {
-        var client = await _db.Clients.FindAsync(id);
+        var query = _db.Clients.AsQueryable();
+        query = _multiTenant.ApplyCompanyScope(query);
+
+        var client = await query.FirstOrDefaultAsync(c => c.Id == id);
         if (client == null) return NotFound();
 
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -151,7 +167,10 @@ public class ClientsController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var client = await _db.Clients.FindAsync(id);
+        var query = _db.Clients.AsQueryable();
+        query = _multiTenant.ApplyCompanyScope(query);
+
+        var client = await query.FirstOrDefaultAsync(c => c.Id == id);
         if (client == null) return NotFound();
 
         var hasPlants = await _db.Plants.AnyAsync(p => p.ClientId == id);

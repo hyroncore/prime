@@ -22,11 +22,13 @@ public class RequisitionsController : ControllerBase
 
     private readonly PrimeDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly MultiTenantService _multiTenant;
 
-    public RequisitionsController(PrimeDbContext db, IWebHostEnvironment env)
+    public RequisitionsController(PrimeDbContext db, IWebHostEnvironment env, MultiTenantService multiTenant)
     {
         _db = db;
         _env = env;
+        _multiTenant = multiTenant;
     }
 
     [HttpGet]
@@ -36,7 +38,9 @@ public class RequisitionsController : ControllerBase
         [FromQuery] string? sectorCode = null,
         [FromQuery] string? status = null)
     {
-        var query = ApplyFilters(_db.PurchaseRequisitions.AsQueryable(), search, plantId, sectorCode, status);
+        var query = _db.PurchaseRequisitions.AsQueryable();
+        query = _multiTenant.ApplyCompanyScope(query);
+        query = ApplyFilters(query, search, plantId, sectorCode, status);
 
         var requisitions = await query
             .Include(r => r.Plant)
@@ -53,7 +57,9 @@ public class RequisitionsController : ControllerBase
         [FromQuery] string? sectorCode = null,
         [FromQuery] string? status = null)
     {
-        var query = ApplyFilters(_db.PurchaseRequisitions.AsQueryable(), search, plantId, sectorCode, status);
+        var query = _db.PurchaseRequisitions.AsQueryable();
+        query = _multiTenant.ApplyCompanyScope(query);
+        query = ApplyFilters(query, search, plantId, sectorCode, status);
         var now = DateTime.UtcNow;
         var nowDate = now.Date;
 

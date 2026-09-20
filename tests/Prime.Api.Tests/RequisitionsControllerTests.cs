@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.DependencyInjection;
 using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
+using Prime.Api.Services;
 using System.Security.Claims;
 
 namespace Prime.Api.Tests;
@@ -29,12 +31,19 @@ public class RequisitionsControllerTests : IDisposable
             .Options;
         _db = new PrimeDbContext(options);
         _db.Database.EnsureCreated();
-        
+
         // Seed test user with ID 1
         _db.Users.Add(new AppUser { Id = 1, Username = "testuser", DisplayName = "Test User", Role = "User", PasswordHash = "dummy", IsActive = true, CreatedAt = DateTime.UtcNow });
         _db.SaveChanges();
-        
-        var controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot));
+
+        // Create a mock MultiTenantService
+        var services = new ServiceCollection();
+        services.AddHttpContextAccessor();
+        var serviceProvider = services.BuildServiceProvider();
+        var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
+        var multiTenant = new MultiTenantService(httpContextAccessor);
+
+        var controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot), multiTenant);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
