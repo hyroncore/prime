@@ -307,49 +307,27 @@ public class DashboardController : ControllerBase
         try
         {
             var userId = GetCurrentUserId();
-            var isAdmin = User.IsInRole("Admin");
-
-            // Get subordinates for this manager
-            var subordinateIds = await _db.Users
-                .Where(u => u.ManagerId == userId && u.IsActive)
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            var allTeamUserIds = isAdmin
-                ? await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync()
-                : subordinateIds;
 
             // Actionable statuses for manager dashboard
             var managerActionableStatuses = new[] { "REVIEW", "SUBMITTED" };
-            
-            // Materialize team user IDs to a HashSet for O(1) lookup
-            var teamUserIdSet = new HashSet<int>(allTeamUserIds);
 
-            // Materialize all requisitions with includes, then filter in memory
-            // This avoids LINQ translation issues with Contains/Join on SQLite
+            // Materialize all requisitions with includes
             var allRequisitions = await _db.PurchaseRequisitions
                 .Include(r => r.Plant)!
                     .ThenInclude(p => p!.Client)
-                .Where(r => r.CreatedById.HasValue)
                 .ToListAsync();
 
-            // Filter in memory for actionable requisitions from team members
+            // Filter for actionable requisitions across the system
             var requisitions = allRequisitions
-                .Where(r => managerActionableStatuses.Contains(r.Status)
-                    && teamUserIdSet.Contains(r.CreatedById.Value))
-                .ToList();
-
-            // For stats (won/lost), filter all requisitions from team members
-            var allTeamRequisitions = allRequisitions
-                .Where(r => teamUserIdSet.Contains(r.CreatedById.Value))
+                .Where(r => managerActionableStatuses.Contains(r.Status))
                 .ToList();
 
             var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING", "SUBMITTED" };
             var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
             var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
-            var teamVolume = allTeamRequisitions.Count;
-            var wonCount = allTeamRequisitions.Count(r => r.Status == "WON");
-            var lostCount = allTeamRequisitions.Count(r => r.Status == "LOST");
+            var teamVolume = allRequisitions.Count;
+            var wonCount = allRequisitions.Count(r => r.Status == "WON");
+            var lostCount = allRequisitions.Count(r => r.Status == "LOST");
             var decided = wonCount + lostCount;
             var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
 
@@ -374,13 +352,18 @@ public class DashboardController : ControllerBase
                 .OrderBy(r => r.SubmittedAt)
                 .ToList();
 
-            var teamUsers = await _db.Users
-                .Where(u => allTeamUserIds.Contains(u.Id))
+            // Active team members (standard users, or non-admin users)
+            var standardUsers = await _db.Users
+                .Where(u => u.IsActive && u.Role == UserRoles.User)
                 .ToListAsync();
+
+            var teamUsers = standardUsers.Count > 0
+                ? standardUsers
+                : await _db.Users.Where(u => u.IsActive && u.Role != UserRoles.Admin).ToListAsync();
 
             var teamPerformance = teamUsers
                 .Select(u => {
-                    var userReqs = _db.PurchaseRequisitions
+                    var userReqs = allRequisitions
                         .Where(r => r.CreatedById == u.Id)
                         .ToList();
                     var userOpen = userReqs.Count(r => openStatuses.Contains(r.Status));
@@ -428,28 +411,16 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var userId = GetCurrentUserId();
-            var isAdmin = User.IsInRole("Admin");
-
-            var subordinateIds = await _db.Users
-                .Where(u => u.ManagerId == userId && u.IsActive)
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            var allTeamUserIds = isAdmin
-                ? await _db.Users.Where(u => u.IsActive).Select(u => u.Id).ToListAsync()
-                : subordinateIds;
-
             var reviewCount = await _db.PurchaseRequisitions
-                .Where(r => r.Status == "REVIEW" && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .Where(r => r.Status == "REVIEW")
                 .CountAsync();
 
             var submittedCount = await _db.PurchaseRequisitions
-                .Where(r => r.Status == "SUBMITTED" && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .Where(r => r.Status == "SUBMITTED")
                 .CountAsync();
 
             var archiveCount = await _db.PurchaseRequisitions
-                .Where(r => new[] { "DECLINED", "APPROVED", "REVISE" }.Contains(r.Status) && r.CreatedById.HasValue && allTeamUserIds.Contains(r.CreatedById.Value))
+                .Where(r => new[] { "DECLINED", "APPROVED", "REVISE" }.Contains(r.Status))
                 .CountAsync();
 
             return Ok(new WorkflowCountsDto(reviewCount, submittedCount, archiveCount));

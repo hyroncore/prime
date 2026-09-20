@@ -15,7 +15,6 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useAuthStore } from '@/store/useAuthStore'
 import { api } from '@/lib/api'
-import type { UserDto } from '@/lib/types'
 
 type FormRole = 'Manager' | 'User'
 
@@ -40,25 +39,10 @@ export function UserFormPage() {
   const [formRole, setFormRole] = useState<FormRole>('User')
   const [formActive, setFormActive] = useState(true)
   const [formPassword, setFormPassword] = useState('')
-  const [formManagerId, setFormManagerId] = useState<number | null>(null)
-  const [managers, setManagers] = useState<UserDto[]>([])
   const [formBusy, setFormBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const isSelf = Boolean(currentUser && userId === currentUser.id)
-
-  // Load managers list for the dropdown
-  useEffect(() => {
-    const loadManagers = async () => {
-      try {
-        const users = await api.users.list()
-        setManagers(users.filter((u) => u.role === 'Manager' && u.isActive))
-      } catch (e) {
-        console.error('Failed to load managers:', e)
-      }
-    }
-    void loadManagers()
-  }, [])
 
   useEffect(() => {
     if (isEditing) {
@@ -68,7 +52,6 @@ export function UserFormPage() {
           setFormUsername(user.username)
           setFormRole(user.role as FormRole)
           setFormActive(user.isActive)
-          setFormManagerId(user.managerId ?? null)
         } catch (e) {
           console.error('Failed to load user:', e)
         }
@@ -78,7 +61,6 @@ export function UserFormPage() {
       setFormUsername('')
       setFormRole('User')
       setFormActive(true)
-      setFormManagerId(null)
     }
   }, [userId, isEditing])
 
@@ -112,7 +94,6 @@ export function UserFormPage() {
           displayName: formUsername.trim(),
           role: role as any,
           isActive: formActive,
-          managerId: formRole === 'User' ? formManagerId : null,
         })
         successToast('تم تعديل المستخدم بنجاح')
       } else {
@@ -179,10 +160,7 @@ export function UserFormPage() {
               <Label htmlFor="role">الدور</Label>
               <Select
                 value={formRole}
-                onValueChange={(v) => {
-                  setFormRole(v as FormRole)
-                  if (v !== 'User') setFormManagerId(null)
-                }}
+                onValueChange={(v) => setFormRole(v as FormRole)}
                 disabled={isSelf}
                 required
               >
@@ -212,32 +190,6 @@ export function UserFormPage() {
               </Switch>
             </div>
           </div>
-
-          {/* Manager assignment — only shown when role is User */}
-          {formRole === 'User' && (
-            <div className="space-y-1.5">
-              <Label htmlFor="manager">المدير المسؤول</Label>
-              <Select
-                value={formManagerId !== null ? String(formManagerId) : 'none'}
-                onValueChange={(v) => setFormManagerId(v === 'none' ? null : Number(v))}
-              >
-                <SelectTrigger className="h-9 text-sm" id="manager">
-                  <SelectValue placeholder="بدون مدير" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— بدون مدير —</SelectItem>
-                  {managers.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {m.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                تحديد المدير يجعل طلبات هذا المستخدم تظهر في لوحة تحكم المدير
-              </p>
-            </div>
-          )}
 
           {!isEditing && (
             <div className="space-y-1.5">

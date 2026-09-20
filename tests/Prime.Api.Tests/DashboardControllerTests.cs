@@ -122,41 +122,41 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectPendingReviewCount()
     {
-        // Arrange: 2 REVIEW from subordinates (req1, req3), 1 from unrelated (req5 - should be excluded)
+        // 3 REVIEW across all users (req1, req3, req5) - no assignment required
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(2, dto.PendingReview); // Only subordinates' REVIEW
+        Assert.Equal(3, dto.PendingReview);
         Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0001");
         Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0003");
-        Assert.DoesNotContain(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
+        Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
     }
 
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectPendingSignOffCount()
     {
-        // Arrange: 1 SUBMITTED from subordinates (req2)
+        // Arrange: 1 SUBMITTED (req2)
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(1, dto.PendingSignOff); // Only subordinates' SUBMITTED
+        Assert.Equal(1, dto.PendingSignOff);
         Assert.Contains(dto.PendingSignOffs, r => r.Identifier == "TP-01-0002");
     }
 
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectTeamVolume()
     {
-        // TeamVolume = REVIEW + SUBMITTED from subordinates = 3
+        // TeamVolume = all 7 requisitions seeded
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(3, dto.TeamVolume); // req1 (REVIEW) + req2 (SUBMITTED) + req3 (REVIEW)
+        Assert.Equal(7, dto.TeamVolume);
     }
 
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectWinRate()
     {
-        // Won: 1 (reqWon from sub1), Lost: 1 (reqLost from sub2) = 50%
+        // Won: 1 (reqWon), Lost: 1 (reqLost) = 50%
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
@@ -166,17 +166,14 @@ public class DashboardControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetManagerStats_ExcludesUnrelatedUsersRequisitions()
+    public async Task GetManagerStats_IncludesAllUsersRequisitionsWithoutAssignment()
     {
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        // req5 from unrelated user should not appear in any list
-        Assert.DoesNotContain(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
-        Assert.DoesNotContain(dto.PendingSignOffs, r => r.Identifier == "TP-01-0005");
-        
-        // Team volume should only count subordinates
-        Assert.Equal(3, dto.TeamVolume); // Not 4 (would include unrelated's REVIEW)
+        // req5 from user 4 appears in pendingReviews without needing ManagerId assignment
+        Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
+        Assert.Equal(7, dto.TeamVolume);
     }
 
     [Fact]
@@ -185,13 +182,16 @@ public class DashboardControllerTests : IDisposable
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(2, dto.TeamPerformance.Count); // Only 2 subordinates
+        // All 3 active standard users are included
+        Assert.Equal(3, dto.TeamPerformance.Count);
 
         var sub1Perf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Subordinate 1");
         var sub2Perf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Subordinate 2");
+        var unrelatedPerf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Unrelated User");
 
         Assert.NotNull(sub1Perf);
         Assert.NotNull(sub2Perf);
+        Assert.NotNull(unrelatedPerf);
 
         // Sub1: 1 REVIEW (req1) + 1 SUBMITTED (req2) = 2 open, 1 WON, 0 LOST = 100% win rate
         Assert.Equal(2, sub1Perf.OpenRequisitions);
@@ -204,6 +204,12 @@ public class DashboardControllerTests : IDisposable
         Assert.Equal(0, sub2Perf.SubmittedCount);
         Assert.Equal(0, sub2Perf.WonCount);
         Assert.Equal(0.0, sub2Perf.WinRate);
+
+        // Unrelated: 1 REVIEW (req5), 0 SUBMITTED, 0 WON, 0 LOST = 0% win rate
+        Assert.Equal(1, unrelatedPerf.OpenRequisitions);
+        Assert.Equal(0, unrelatedPerf.SubmittedCount);
+        Assert.Equal(0, unrelatedPerf.WonCount);
+        Assert.Equal(0.0, unrelatedPerf.WinRate);
     }
 
     [Fact]
@@ -252,9 +258,8 @@ public class DashboardControllerTests : IDisposable
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        // Admin should see all actionable (REVIEW + SUBMITTED) from all users
-        // Total: req1(REVIEW) + req2(SUBMITTED) + req3(REVIEW) + req5(REVIEW) = 4
-        Assert.Equal(4, dto.TeamVolume);
+        // Total requisitions in system: 7
+        Assert.Equal(7, dto.TeamVolume);
         Assert.Equal(3, dto.PendingReview); // req1, req3, req5
         Assert.Equal(1, dto.PendingSignOff); // req2
     }
