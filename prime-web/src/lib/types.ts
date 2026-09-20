@@ -392,6 +392,32 @@ export interface ResetPasswordRequest {
   newPassword: string
 }
 
+export interface CompanyDto {
+  id: number
+  name: string
+  code: string
+  description: string | null
+  isActive: boolean
+  createdAt: string
+  usersCount: number
+  clientsCount: number
+  plantsCount: number
+  requisitionsCount: number
+}
+
+export interface CreateCompanyRequest {
+  name: string
+  code: string
+  description?: string | null
+}
+
+export interface UpdateCompanyRequest {
+  name: string
+  code: string
+  description?: string | null
+  isActive: boolean
+}
+
 export interface WorkflowCountsDto {
   review: number
   internal: number

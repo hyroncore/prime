@@ -28,10 +28,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { THEME_OPTIONS, useSettingsStore } from '@/store/useSettingsStore'
+import { api } from '@/lib/api'
 
 const APP_VERSION = '1.0.0'
 
@@ -53,22 +55,53 @@ export function SettingsPage() {
   const resetDefaults = useSettingsStore((s) => s.resetDefaults)
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'general' | 'companies' | 'system'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'companies' | 'system' | 'companies-mgmt'>('general')
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // Company management state
+  const [companies, setCompanies] = useState<any[]>([])
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false)
+  const [editingCompany, setEditingCompany] = useState<any | null>(null)
+  const [companyName, setCompanyName] = useState('')
+  const [companyCode, setCompanyCode] = useState('')
+  const [companyDescription, setCompanyDescription] = useState('')
+  const [companyActive, setCompanyActive] = useState(true)
+  const [companyBusy, setCompanyBusy] = useState(false)
+  const [companyError, setCompanyError] = useState<string | null>(null)
+  const [deleteCompanyTarget, setDeleteCompanyTarget] = useState<number | null>(null)
+  const [deletingCompany, setDeletingCompany] = useState(false)
+  const [deleteCompanyError, setDeleteCompanyError] = useState<string | null>(null)
+
   const { toast } = useToast()
 
-  const availableTabs: readonly ('general' | 'companies' | 'system')[] = canManageSettings
-    ? ['general', 'companies', 'system']
-    : ['general']
+  const availableTabs: readonly ('general' | 'companies' | 'system' | 'companies-mgmt')[] = isAdmin
+    ? ['general', 'companies', 'system', 'companies-mgmt']
+    : canManageSettings
+      ? ['general', 'companies', 'system']
+      : ['general']
 
   useEffect(() => {
     if (clients.length === 0) {
       void fetchClients()
     }
   }, [clients.length, fetchClients])
+
+  useEffect(() => {
+    if (activeTab === 'companies-mgmt' && companies.length === 0) {
+      void fetchCompanies()
+    }
+  }, [activeTab])
+
+  const fetchCompanies = async () => {
+    try {
+      const data = await api.companies.list()
+      setCompanies(data)
+    } catch (e) {
+      console.error('Failed to fetch companies:', e)
+    }
+  }
 
   const successToast = (title: string) =>
     toast({
@@ -104,6 +137,86 @@ export function SettingsPage() {
   }
 
   const deleteClientName = clients.find((c) => c.id === deleteTarget)?.name ?? ''
+
+  // Company management functions
+  const openCompanyDialog = () => {
+    setEditingCompany(null)
+    setCompanyName('')
+    setCompanyCode('')
+    setCompanyDescription('')
+    setCompanyActive(true)
+    setCompanyError(null)
+    setCompanyDialogOpen(true)
+  }
+
+  const openCompanyEditDialog = (company: any) => {
+    setEditingCompany(company)
+    setCompanyName(company.name)
+    setCompanyCode(company.code)
+    setCompanyDescription(company.description ?? '')
+    setCompanyActive(company.isActive)
+    setCompanyError(null)
+    setCompanyDialogOpen(true)
+  }
+
+  const closeCompanyDialog = () => {
+    setCompanyDialogOpen(false)
+    setEditingCompany(null)
+  }
+
+  const handleCompanySubmit = async () => {
+    if (!companyName.trim()) {
+      setCompanyError('اسم الشركة مطلوب')
+      return
+    }
+    if (!companyCode.trim()) {
+      setCompanyError('كود الشركة مطلوب')
+      return
+    }
+
+    setCompanyBusy(true)
+    setCompanyError(null)
+    try {
+      const body = {
+        name: companyName.trim(),
+        code: companyCode.trim().toUpperCase(),
+        description: companyDescription.trim() || null,
+        isActive: companyActive,
+      }
+
+      if (editingCompany) {
+        await api.companies.update(editingCompany.id, body)
+        successToast('تم تعديل الشركة بنجاح')
+      } else {
+        await api.companies.create(body)
+        successToast('تمت إضافة الشركة بنجاح')
+      }
+      closeCompanyDialog()
+      await fetchCompanies()
+    } catch (e) {
+      setCompanyError(e instanceof Error ? e.message : 'حدث خطأ أثناء حفظ الشركة')
+    } finally {
+      setCompanyBusy(false)
+    }
+  }
+
+  const handleDeleteCompany = async () => {
+    if (deleteCompanyTarget == null) return
+    setDeletingCompany(true)
+    setDeleteCompanyError(null)
+    try {
+      await api.companies.remove(deleteCompanyTarget)
+      setDeleteCompanyTarget(null)
+      successToast('تم حذف الشركة بنجاح')
+      await fetchCompanies()
+    } catch (e) {
+      setDeleteCompanyError(e instanceof Error ? e.message : 'حدث خطأ أثناء الحذف')
+    } finally {
+      setDeletingCompany(false)
+    }
+  }
+
+  const deleteCompanyName = companies.find((c) => c.id === deleteCompanyTarget)?.name ?? ''
 
   if (loading && clients.length === 0) {
     return (
@@ -410,6 +523,140 @@ export function SettingsPage() {
             </div>
           </div>
         </TabsContent>
+
+        <TabsContent value="companies-mgmt" className="mt-8">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+                إدارة الشركات
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={openCompanyDialog}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold h-8"
+              >
+                + إضافة شركة
+              </Button>
+            </div>
+          </div>
+
+          {companies.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <p className="text-base font-black">لا توجد شركات مسجلة بعد</p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                أضف شركة تشغيلية جديدة لبدء إدارة المستخدمين والعملاء والطلبات بشكل منفصل
+              </p>
+              <Button
+                onClick={openCompanyDialog}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+              >
+                + إضافة شركة
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border hover:bg-transparent">
+                  <TableHead className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
+                    الشركة
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
+                    الكود
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    المستخدمون
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    العملاء
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    العملاء (المصانع)
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    الطلبات
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    الحالة
+                  </TableHead>
+                  <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                    إجراءات
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {companies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-sm">
+                      لا توجد شركات
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  companies.map((company) => (
+                    <TableRow
+                      key={company.id}
+                      className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
+                    >
+                      <TableCell className="px-5 py-3.5">
+                        <span className="text-sm font-bold">{company.name}</span>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-sm" dir="ltr">
+                        {company.code}
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <span className="text-sm font-black tabular-nums text-primary">
+                          {company.usersCount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <span className="text-sm font-black tabular-nums text-primary">
+                          {company.clientsCount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <span className="text-sm font-black tabular-nums text-primary">
+                          {company.plantsCount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <span className="text-sm font-bold tabular-nums text-primary">
+                          {company.requisitionsCount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <Badge
+                          variant={company.isActive ? 'default' : 'outline'}
+                          className="rounded-full py-0"
+                        >
+                          {company.isActive ? 'نشطة' : 'معطلة'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => openCompanyEditDialog(company)}
+                            className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteCompanyTarget(company.id)
+                              setDeleteCompanyError(null)
+                            }}
+                            className="text-xs font-semibold text-red-700 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -439,6 +686,131 @@ export function SettingsPage() {
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleting}
+              className="w-full text-xs font-semibold"
+            >
+              إلغاء
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Company Dialog */}
+      <AlertDialog open={companyDialogOpen} onOpenChange={(open) => !open && closeCompanyDialog()}>
+        <AlertDialogContent className="max-w-md" dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black">
+              {editingCompany ? 'تعديل الشركة' : 'إضافة شركة جديدة'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              {editingCompany
+                ? 'قم بتعديل بيانات الشركة التشغيلية'
+                : 'أضف شركة تشغيلية جديدة لإدارة المستخدمين والعملاء والطلبات بشكل منفصل'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">اسم الشركة</label>
+              <Input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="مثال: الشركة الأولى للمقاولات"
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">الكود</label>
+              <Input
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+                placeholder="مثال: CMP1"
+                dir="ltr"
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground">الوصف</label>
+              <textarea
+                value={companyDescription}
+                onChange={(e) => setCompanyDescription(e.target.value)}
+                placeholder="وصف مختصر للشركة (اختياري)"
+                className="h-20 text-sm p-2 rounded-lg border border-input bg-background"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 py-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="company-active"
+                  checked={companyActive}
+                  onChange={(e) => setCompanyActive(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="company-active" className="text-sm font-medium">
+                  نشطة
+                </label>
+              </div>
+            </div>
+
+            {companyError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {companyError}
+              </p>
+            )}
+          </div>
+
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              onClick={handleCompanySubmit}
+              disabled={companyBusy}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+            >
+              {companyBusy ? 'جارٍ الحفظ...' : editingCompany ? 'حفظ التعديلات' : 'حفظ الشركة'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={closeCompanyDialog}
+              disabled={companyBusy}
+              className="w-full text-xs font-semibold"
+            >
+              إلغاء
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Company Confirmation */}
+      <AlertDialog open={deleteCompanyTarget != null} onOpenChange={(open) => !open && setDeleteCompanyTarget(null)}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black">تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              هل أنت متأكد من حذف الشركة{' '}
+              <span className="font-bold text-foreground">{deleteCompanyName}</span>؟ لا يمكن الحذف
+              إذا كانت الشركة مرتبطة بمستخدمين أو عملاء أو طلبات.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteCompanyError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {deleteCompanyError}
+            </p>
+          )}
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full text-xs font-bold"
+              disabled={deletingCompany}
+              onClick={handleDeleteCompany}
+            >
+              {deletingCompany ? 'جارٍ الحذف...' : 'حذف'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteCompanyTarget(null)}
+              disabled={deletingCompany}
               className="w-full text-xs font-semibold"
             >
               إلغاء
