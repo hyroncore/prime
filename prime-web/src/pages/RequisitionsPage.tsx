@@ -216,7 +216,7 @@ export function RequisitionsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-8">
         {[
           {
             title: 'إجمالي الطلبات',
@@ -232,11 +232,6 @@ export function RequisitionsPage() {
             title: 'الطلبات المتأخرة',
             value: String(kpiStats?.overdueCount ?? 0),
             subtitle: 'مرّ تاريخ استحقاقها',
-          },
-          {
-            title: 'نسبة الفوز',
-            value: `${Math.round(kpiStats?.winRate ?? 0)}%`,
-            subtitle: `${kpiStats?.wonCount ?? 0} فائزة / ${kpiStats?.lostCount ?? 0} خاسرة`,
           },
         ].map((stat, i) => (
           <div

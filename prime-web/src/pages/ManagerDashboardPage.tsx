@@ -105,7 +105,7 @@ export function ManagerDashboardPage() {
 
   const funnelTotal = FUNNEL_ORDER.reduce((sum, s) => sum + funnelCounts[s], 0)
 
-  const kpis = [
+const kpis = [
     {
       title: 'حجم فريق العمل',
       value: String(managerStats.teamVolume),
@@ -122,11 +122,6 @@ export function ManagerDashboardPage() {
       value: String(managerStats.pendingSignOff),
       subtitle: 'مُراجعة، بانتظار الاعتماد النهائي',
       accent: managerStats.pendingSignOff > 0,
-    },
-    {
-      title: 'نسبة فوز الفريق',
-      value: `${managerStats.teamWinRate}%`,
-      subtitle: `${managerStats.wonCount} فائزة / ${managerStats.lostCount} خاسرة`,
     },
   ]
 
@@ -147,7 +142,7 @@ export function ManagerDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-8">
         {kpis.map((stat, i) => (
           <div
             key={i}
@@ -339,11 +334,8 @@ export function ManagerDashboardPage() {
                     <div key={member.userId} className="space-y-2">
                       <div className="flex items-baseline justify-between gap-3">
                         <p className="text-sm font-bold">{member.displayName}</p>
-                        <p className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                          نسبة الفوز: {member.winRate}%
-                        </p>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="p-2 rounded-lg bg-muted/50">
                           <p className="text-lg font-black">{member.openRequisitions}</p>
                           <p className="text-[10px] text-muted-foreground">نشطة</p>
@@ -360,12 +352,6 @@ export function ManagerDashboardPage() {
                           </p>
                           <p className="text-[10px] text-muted-foreground">مُقدمة</p>
                         </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-lg font-black text-green-700 dark:text-green-400">
-                            {member.wonCount}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">فائزة</p>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -375,80 +361,6 @@ export function ManagerDashboardPage() {
                   لا توجد بيانات لأعضاء الفريق
                 </p>
               )}
-            </div>
-          </Card>
-
-          <Card>
-            <div className="p-4 border-b border-border">
-              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                ملخص الفوز/الخسارة
-              </p>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                  <p className="text-xs font-bold">
-                    <span className="text-green-600">فائزة</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                    {managerStats.wonCount}
-                  </p>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-green-600"
-                    style={{
-                      width: `${
-                        managerStats.wonCount + managerStats.lostCount > 0
-                          ? Math.round(
-                              (managerStats.wonCount / (managerStats.wonCount + managerStats.lostCount)) * 100
-                            )
-                          : 0
-                      }%`
-                    }}
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                  <p className="text-xs font-bold">
-                    <span className="text-red-600">خاسرة</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                    {managerStats.lostCount}
-                  </p>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-red-600"
-                    style={{
-                      width: `${
-                        managerStats.wonCount + managerStats.lostCount > 0
-                          ? Math.round(
-                              (managerStats.lostCount / (managerStats.wonCount + managerStats.lostCount)) * 100
-                            )
-                          : 0
-                      }%`
-                    }}
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                  <p className="text-xs font-bold">
-                    <span className="text-blue-600">نسبة الفوز</span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                    {managerStats.teamWinRate}%
-                  </p>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-blue-600"
-                    style={{ width: `${managerStats.teamWinRate}%` }}
-                  />
-                </div>
-              </div>
             </div>
           </Card>
         </div>

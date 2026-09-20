@@ -15,5 +15,9 @@ public class Client
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // Company association
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
+
     public List<Plant> Plants { get; set; } = new();
 }

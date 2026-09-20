@@ -335,7 +335,6 @@ export function AdminDashboardPage() {
                     <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 w-[40px]">#</TableHead>
                     <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">العميل</TableHead>
                     <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الطلبات</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الفائزة</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -346,9 +345,6 @@ export function AdminDashboardPage() {
                       </TableCell>
                       <TableCell className="px-4 py-3.5 text-center text-base font-black tabular-nums">
                         {client.totalRequisitions}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-center text-base font-black tabular-nums text-green-700 dark:text-green-400">
-                        {client.wonCount}
                       </TableCell>
                     </TableRow>
                   ))}

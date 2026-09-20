@@ -69,9 +69,6 @@ export function ClientsPage() {
     const total = scope.length
     const active = scope.filter((p) => p.openRequisitions > 0).length
     const openTotal = scope.reduce((sum, p) => sum + p.openRequisitions, 0)
-    const decided = scope.reduce((sum, p) => sum + p.wonCount + p.lostCount, 0)
-    const won = scope.reduce((sum, p) => sum + p.wonCount, 0)
-    const avgWinRate = decided === 0 ? 0 : Math.round((won / decided) * 1000) / 10
 
     return [
       {
@@ -85,7 +82,6 @@ export function ClientsPage() {
         value: String(openTotal),
         subtitle: 'مجموع طلبات قيد المراجعة أو المعالجة',
       },
-      { title: 'متوسط نسبة الفوز', value: `${avgWinRate}%`, subtitle: 'عبر جميع العملاء' },
     ]
   }, [plants, companyFilter])
 
@@ -157,7 +153,7 @@ export function ClientsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-8">
         {kpis.map((stat, i) => (
           <div
             key={i}
@@ -242,12 +238,6 @@ export function ClientsPage() {
                 إجمالي الطلبات
               </TableHead>
               <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
-                فائزة / خاسرة
-              </TableHead>
-              <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
-                نسبة الفوز
-              </TableHead>
-              <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
                 إجراءات
               </TableHead>
             </TableRow>
@@ -274,20 +264,6 @@ export function ClientsPage() {
                 </TableCell>
                 <TableCell className="px-5 py-3.5 text-center">
                   <span className="text-sm font-bold tabular-nums">{plant.totalRequisitions}</span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5 text-center">
-                  <span className="text-sm font-bold tabular-nums text-green-700 dark:text-green-400">
-                    {plant.wonCount}
-                  </span>
-                  <span className="text-sm text-muted-foreground mx-1">/</span>
-                  <span className="text-sm font-bold tabular-nums text-red-700 dark:text-red-400">
-                    {plant.lostCount}
-                  </span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5 text-center">
-                  <span className="text-sm font-bold tabular-nums text-primary">
-                    {plant.winRate}%
-                  </span>
                 </TableCell>
                 <TableCell className="px-5 py-3.5 text-center">
                   <div className="flex items-center justify-center gap-3">

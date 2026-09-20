@@ -11,6 +11,10 @@ public class AppUser
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
 
+    // Company association
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
+
     // Manager hierarchy
     public int? ManagerId { get; set; }
     public AppUser? Manager { get; set; }

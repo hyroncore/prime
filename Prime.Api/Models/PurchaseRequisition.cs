@@ -36,6 +36,10 @@ public class PurchaseRequisition
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // Company association (for multi-tenancy)
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
+
     // Tracking fields
     public int? CreatedById { get; set; }
     public AppUser? CreatedBy { get; set; }

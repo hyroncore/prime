@@ -86,11 +86,6 @@ export function DashboardPage() {
       value: String(stats?.submittedCount ?? 0),
       subtitle: 'في انتظار قرار العميل',
     },
-    {
-      title: 'نسبة الفوز',
-      value: `${stats?.winRate ?? 0}%`,
-      subtitle: `${stats?.wonCount ?? 0} فائزة / ${stats?.lostCount ?? 0} خاسرة`,
-    },
   ]
 
   const funnelCounts: Record<RequisitionStatus, number> = {
@@ -140,7 +135,7 @@ export function DashboardPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-8">
             {kpis.map((stat, i) => (
               <div
                 key={i}
@@ -313,21 +308,11 @@ export function DashboardPage() {
                         className="flex items-center justify-between gap-3 py-3"
                       >
                         <p className="truncate text-sm font-bold">{client.clientName}</p>
-                        <div className="flex shrink-0 items-center gap-6">
-                          <div className="text-center">
-                            <p className="text-base font-black tabular-nums">{client.total}</p>
-                            <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
-                              إجمالي
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-base font-black tabular-nums text-green-700 dark:text-green-400">
-                              {client.won}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
-                              فائزة
-                            </p>
-                          </div>
+                        <div className="text-center shrink-0">
+                          <p className="text-base font-black tabular-nums">{client.total}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold tracking-wide">
+                            إجمالي
+                          </p>
                         </div>
                       </div>
                     ))}
