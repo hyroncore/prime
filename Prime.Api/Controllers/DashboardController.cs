@@ -347,7 +347,7 @@ public class DashboardController : ControllerBase
             var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING", "SUBMITTED" };
             var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
             var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
-            var teamVolume = requisitions.Count;
+            var teamVolume = allTeamRequisitions.Count;
             var wonCount = allTeamRequisitions.Count(r => r.Status == "WON");
             var lostCount = allTeamRequisitions.Count(r => r.Status == "LOST");
             var decided = wonCount + lostCount;

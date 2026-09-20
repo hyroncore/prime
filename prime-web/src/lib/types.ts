@@ -356,6 +356,7 @@ export interface UserDto {
   isActive: boolean
   createdAt: string
   lastLoginAt: string | null
+  managerId: number | null
 }
 
 export interface LoginRequest {
@@ -384,6 +385,7 @@ export interface UpdateUserRequest {
   displayName: string
   role: UserRole
   isActive: boolean
+  managerId?: number | null
 }
 
 export interface ResetPasswordRequest {

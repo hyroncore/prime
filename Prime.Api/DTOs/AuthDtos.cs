@@ -8,7 +8,7 @@ public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public record CreateUserRequest(string Username, string DisplayName, string Role, string InitialPassword);
 
-public record UpdateUserRequest(string DisplayName, string Role, bool IsActive);
+public record UpdateUserRequest(string DisplayName, string Role, bool IsActive, int? ManagerId = null);
 
 public record ResetPasswordRequest(string NewPassword);
 
@@ -19,4 +19,5 @@ public record UserDto(
     string Role,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime? LastLoginAt);
+    DateTime? LastLoginAt,
+    int? ManagerId = null);

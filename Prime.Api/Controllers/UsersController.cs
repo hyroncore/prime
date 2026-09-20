@@ -94,6 +94,8 @@ public class UsersController : ControllerBase
         user.DisplayName = request.DisplayName?.Trim() ?? user.DisplayName;
         user.Role = role;
         user.IsActive = request.IsActive;
+        // Allow assigning or clearing the manager
+        user.ManagerId = request.ManagerId;
         await _db.SaveChangesAsync();
         return Ok(ToDto(user));
     }
@@ -176,5 +178,6 @@ public class UsersController : ControllerBase
         user.Role,
         user.IsActive,
         user.CreatedAt,
-        user.LastLoginAt);
+        user.LastLoginAt,
+        user.ManagerId);
 }
