@@ -89,7 +89,7 @@ export function ClientFormDialog() {
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="مثال: شركة الأهلية للأسمنت"
+              placeholder="مثال: الشركة الأهلية للأسمنت"
               className="h-9 text-sm"
             />
           </div>
