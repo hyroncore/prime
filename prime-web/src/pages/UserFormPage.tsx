@@ -39,10 +39,25 @@ export function UserFormPage() {
   const [formRole, setFormRole] = useState<FormRole>('User')
   const [formActive, setFormActive] = useState(true)
   const [formPassword, setFormPassword] = useState('')
+  const [formCompanyId, setFormCompanyId] = useState<number | null>(null)
   const [formBusy, setFormBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [companies, setCompanies] = useState<{ id: number; name: string; code: string }[]>([])
 
   const isSelf = Boolean(currentUser && userId === currentUser.id)
+  const isAdmin = currentUser?.role === 'Admin'
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      try {
+        const data = await api.companies.list()
+        setCompanies(data)
+      } catch (e) {
+        console.error('Failed to load companies:', e)
+      }
+    }
+    void loadCompanies()
+  }, [])
 
   useEffect(() => {
     if (isEditing) {
@@ -52,6 +67,7 @@ export function UserFormPage() {
           setFormUsername(user.username)
           setFormRole(user.role as FormRole)
           setFormActive(user.isActive)
+          setFormCompanyId(user.companyId ?? null)
         } catch (e) {
           console.error('Failed to load user:', e)
         }
@@ -61,6 +77,7 @@ export function UserFormPage() {
       setFormUsername('')
       setFormRole('User')
       setFormActive(true)
+      setFormCompanyId(null)
     }
   }, [userId, isEditing])
 
@@ -94,6 +111,7 @@ export function UserFormPage() {
           displayName: formUsername.trim(),
           role: role as any,
           isActive: formActive,
+          companyId: formCompanyId,
         })
         successToast('تم تعديل المستخدم بنجاح')
       } else {
@@ -106,6 +124,7 @@ export function UserFormPage() {
           displayName: formUsername.trim(),
           role: role as any,
           initialPassword: formPassword,
+          companyId: formCompanyId,
         })
         successToast('تمت إضافة المستخدم بنجاح')
       }
@@ -177,18 +196,40 @@ export function UserFormPage() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>حالة الحساب</Label>
-              <Switch
-                id="user-active"
-                checked={formActive}
-                onCheckedChange={(checked) => setFormActive(checked)}
-                disabled={isSelf}
-                size="default"
-              >
-                حساب نشط
-              </Switch>
-            </div>
+            {isAdmin && (
+              <div className="space-y-1.5">
+                <Label htmlFor="company">الشركة</Label>
+                <Select
+                  value={formCompanyId ? String(formCompanyId) : ''}
+                  onValueChange={(v) => setFormCompanyId(v ? Number(v) : null)}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="اختر الشركة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">بدون شركة</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={String(company.id)}>
+                        {company.name} {company.code && `(${company.code})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>حالة الحساب</Label>
+            <Switch
+              id="user-active"
+              checked={formActive}
+              onCheckedChange={(checked) => setFormActive(checked)}
+              disabled={isSelf}
+              size="default"
+            >
+              حساب نشط
+            </Switch>
           </div>
 
           {!isEditing && (

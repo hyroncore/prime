@@ -5,6 +5,7 @@ using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
 using Prime.Api.Services;
+using System.Security.Claims;
 
 namespace Prime.Api.Controllers;
 
@@ -65,11 +66,17 @@ public class ClientsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ClientDto>> Create([FromBody] CreateClientRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest(new { message = "اسم الجهة مطلوب." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Code))
+        {
+            return BadRequest(new { message = "كود الجهة مطلوب." });
         }
 
         var existing = await _db.Clients.AnyAsync(c => c.Name == request.Name.Trim());
@@ -78,42 +85,31 @@ public class ClientsController : ControllerBase
             return BadRequest(new { message = "يوجد جهة بهذا الاسم مسبقاً." });
         }
 
+        var codeExists = await _db.Clients.AnyAsync(c => c.Code == request.Code.Trim().ToUpperInvariant());
+        if (codeExists)
+        {
+            return BadRequest(new { message = "يوجد جهة بهذا الكود مسبقاً." });
+        }
+
         var companyIdClaim = User.FindFirst("company_id")?.Value;
         if (!int.TryParse(companyIdClaim, out var companyId))
         {
             return BadRequest(new { message = "غير مصرح - يرجى تسجيل الدخول كمسؤول شركة" });
         }
 
-        var plants = new List<Plant>();
-        foreach (var plantRequest in request.Plants ?? new List<CreatePlantRequest>())
-        {
-            if (string.IsNullOrWhiteSpace(plantRequest.PlantName) ||
-                string.IsNullOrWhiteSpace(plantRequest.ShortCode))
-            {
-                continue;
-            }
-
-            var shortCode = plantRequest.ShortCode.Trim().ToUpperInvariant();
-            if (await _db.Plants.AnyAsync(p => p.ShortCode == shortCode))
-            {
-                return BadRequest(new { message = $"Short code '{shortCode}' is already in use." });
-            }
-
-            plants.Add(new Plant
-            {
-                PlantName = plantRequest.PlantName.Trim(),
-                ShortCode = shortCode,
-                CompanyId = companyId
-            });
-        }
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int.TryParse(userIdClaim, out var userId);
 
         var client = new Client
         {
             Name = request.Name.Trim(),
+            Code = request.Code.Trim().ToUpperInvariant(),
+            Type = request.Type?.Trim(),
             PrimaryContactName = request.PrimaryContactName?.Trim(),
             PrimaryContactPhone = request.PrimaryContactPhone?.Trim(),
-            Plants = plants,
-            CompanyId = companyId
+            CompanyId = companyId,
+            CreatedByCompanyId = companyId,
+            CreatedByUserId = userId > 0 ? userId : null
         };
 
         _db.Clients.Add(client);
@@ -125,10 +121,7 @@ public class ClientsController : ControllerBase
             client.PrimaryContactName,
             client.PrimaryContactPhone,
             client.CreatedAt,
-            client.Plants
-                .OrderBy(p => p.ShortCode)
-                .Select(p => new PlantDto(p.Id, p.ClientId, client.Name, p.PlantName, p.ShortCode))
-                .ToList(),
+            new List<PlantDto>(),
             0,
             0);
 
@@ -136,17 +129,20 @@ public class ClientsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateClientRequest request)
     {
-        var query = _db.Clients.AsQueryable();
-        query = _multiTenant.ApplyCompanyScope(query);
-
-        var client = await query.FirstOrDefaultAsync(c => c.Id == id);
+        var client = await _db.Clients.FindAsync(id);
         if (client == null) return NotFound();
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest(new { message = "Client name is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Code))
+        {
+            return BadRequest(new { message = "Client code is required." });
         }
 
         var existing = await _db.Clients.AnyAsync(c => c.Name == request.Name.Trim() && c.Id != id);
@@ -155,7 +151,15 @@ public class ClientsController : ControllerBase
             return BadRequest(new { message = "يوجد جهة بهذا الاسم مسبقاً." });
         }
 
+        var codeExists = await _db.Clients.AnyAsync(c => c.Code == request.Code.Trim().ToUpperInvariant() && c.Id != id);
+        if (codeExists)
+        {
+            return BadRequest(new { message = "يوجد جهة بهذا الكود مسبقاً." });
+        }
+
         client.Name = request.Name.Trim();
+        client.Code = request.Code.Trim().ToUpperInvariant();
+        client.Type = request.Type?.Trim();
         client.PrimaryContactName = request.PrimaryContactName?.Trim();
         client.PrimaryContactPhone = request.PrimaryContactPhone?.Trim();
         await _db.SaveChangesAsync();
@@ -167,10 +171,7 @@ public class ClientsController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var query = _db.Clients.AsQueryable();
-        query = _multiTenant.ApplyCompanyScope(query);
-
-        var client = await query.FirstOrDefaultAsync(c => c.Id == id);
+        var client = await _db.Clients.FindAsync(id);
         if (client == null) return NotFound();
 
         var hasPlants = await _db.Plants.AnyAsync(p => p.ClientId == id);

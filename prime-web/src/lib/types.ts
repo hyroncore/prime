@@ -74,6 +74,8 @@ export interface PlantDetailDto {
 export interface ClientDto {
   id: number
   name: string
+  code: string
+  type: string | null
   primaryContactName: string | null
   primaryContactPhone: string | null
   createdAt: string
@@ -357,6 +359,7 @@ export interface UserDto {
   createdAt: string
   lastLoginAt: string | null
   managerId: number | null
+  companyId: number | null
 }
 
 export interface LoginRequest {
@@ -379,6 +382,7 @@ export interface CreateUserRequest {
   displayName: string
   role: UserRole
   initialPassword: string
+  companyId?: number | null
 }
 
 export interface UpdateUserRequest {
@@ -386,6 +390,7 @@ export interface UpdateUserRequest {
   role: UserRole
   isActive: boolean
   managerId?: number | null
+  companyId?: number | null
 }
 
 export interface ResetPasswordRequest {

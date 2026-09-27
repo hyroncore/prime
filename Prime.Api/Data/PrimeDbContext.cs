@@ -35,11 +35,24 @@ public class PrimeDbContext : DbContext
         modelBuilder.Entity<Client>(entity =>
         {
             entity.Property(c => c.Name).IsRequired();
+            entity.Property(c => c.Code).IsRequired().HasMaxLength(50);
+            entity.Property(c => c.Type).HasMaxLength(100);
             entity.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.HasIndex(c => c.Code).IsUnique();
 
             entity.HasOne(c => c.Company)
                   .WithMany(c => c.Clients)
                   .HasForeignKey(c => c.CompanyId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(c => c.CreatedByCompany)
+                  .WithMany()
+                  .HasForeignKey(c => c.CreatedByCompanyId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(c => c.CreatedByUser)
+                  .WithMany()
+                  .HasForeignKey(c => c.CreatedByUserId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 

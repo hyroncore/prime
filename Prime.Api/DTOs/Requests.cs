@@ -15,6 +15,8 @@ public record UpdateStatusRequest(
 
 public record CreateClientRequest(
     string Name,
+    string Code,
+    string? Type,
     string? PrimaryContactName,
     string? PrimaryContactPhone,
     List<CreatePlantRequest> Plants);
@@ -30,6 +32,8 @@ public record UpdatePlantRequest(
 
 public record UpdateClientRequest(
     string Name,
+    string Code,
+    string? Type,
     string? PrimaryContactName,
     string? PrimaryContactPhone);
 

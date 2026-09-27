@@ -20,6 +20,7 @@ public class Company
 
     public List<AppUser> Users { get; set; } = new();
     public List<Client> Clients { get; set; } = new();
+    public List<Client> CreatedClients { get; set; } = new();
     public List<Plant> Plants { get; set; } = new();
     public List<PurchaseRequisition> Requisitions { get; set; } = new();
 }
