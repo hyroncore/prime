@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -80,17 +81,21 @@ export function RequisitionDetailPage() {
 
     setAttachmentsBusy(true)
     let failures = 0
+    let firstUploadError: string | null = null
     for (const file of accepted) {
       try {
         await api.requisitions.attachments.upload(requisitionId, file)
-      } catch {
+      } catch (error) {
         failures += 1
+        firstUploadError ??=
+          error instanceof Error ? error.message : 'تعذر رفع أحد المرفقات'
       }
     }
     setAttachmentsBusy(false)
     if (failures > 0) {
       toast({
         title: `تعذر رفع ${failures} من المرفقات (${accepted.length})`,
+        description: firstUploadError ?? undefined,
         variant: 'destructive',
       })
     } else {
@@ -110,7 +115,7 @@ export function RequisitionDetailPage() {
   const handleAttachmentDelete = async () => {
     if (!confirmAttachmentDelete) return
     setAttachmentDeleting(true)
-    setDeleteError(null)
+    setAttachmentDeleteError(null)
     try {
       await api.requisitions.attachments.remove(confirmAttachmentDelete.id)
       setConfirmAttachmentDelete(null)
@@ -179,45 +184,61 @@ export function RequisitionDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-10">
-        <Skeleton className="h-4 w-40 rounded-lg" />
-        <div className="flex items-start justify-between">
-          <div>
-            <Skeleton className="h-8 w-48 rounded-lg mb-2" />
-            <Skeleton className="h-4 w-64 rounded-lg" />
-          </div>
-          <Skeleton className="h-8 w-52 rounded-lg" />
+      <div dir="rtl" className="mx-auto w-full max-w-screen-xl space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-40 rounded-lg" />
+          <Skeleton className="h-8 w-56 rounded-lg" />
+          <Skeleton className="h-4 w-64 rounded-lg" />
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 rounded-lg" />
-          ))}
-        </div>
+        <Card>
+          <CardContent className="grid gap-6 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div key={index} className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-5 w-36 rounded" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="space-y-4 p-5">
+            <Skeleton className="h-5 w-32 rounded" />
+            <Skeleton className="h-20 w-full rounded" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (loadError || !detail) {
     return (
-      <div className="space-y-5">
-        <button
+      <div dir="rtl" className="mx-auto w-full max-w-screen-xl space-y-6">
+        <Button
+          type="button"
+          variant="ghost"
           onClick={() => navigate('/requisitions')}
-          className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          className="min-h-11 px-2"
         >
-          رجوع إلى قائمة الطلبات ←
-        </button>
-        <div className="py-16 text-center">
-          <p className="text-sm font-black">{loadError ?? 'الطلب غير موجود'}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            قد يكون الطلب محذوفاً أو أن الرابط غير صحيح
-          </p>
-          <Button
-            onClick={() => navigate('/requisitions')}
-            className="mt-5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-          >
-            العودة لقائمة الطلبات
-          </Button>
-        </div>
+          العودة إلى الطلبات
+        </Button>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <h1 className="text-lg font-bold">{loadError ?? 'الطلب غير موجود'}</h1>
+            <p className="text-sm text-muted-foreground">
+              قد يكون الطلب محذوفاً أو أن الرابط غير صحيح
+            </p>
+            {loadError && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void load()}
+                className="min-h-11"
+              >
+                إعادة المحاولة
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -229,304 +250,322 @@ export function RequisitionDetailPage() {
   })
 
   return (
-    <div dir="rtl" className="space-y-8">
-      <button
+    <div dir="rtl" className="mx-auto w-full max-w-screen-xl space-y-6">
+      <Button
+        type="button"
+        variant="ghost"
         onClick={() => navigate('/requisitions')}
-        className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+        className="min-h-11 px-2"
       >
-        رجوع إلى قائمة الطلبات ←
-      </button>
+        العودة إلى الطلبات
+      </Button>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <h1 dir="ltr" className="font-mono text-2xl font-black tracking-tight text-right">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 dir="ltr" className="text-2xl font-black tracking-tight">
               {detail.identifier}
             </h1>
             <StatusBadge status={detail.status} />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {detail.clientName} · {detail.plantName}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => navigate(`/requisitions/${detail.id}/print`)}
-            className="text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
+            className="min-h-11"
           >
             طباعة
-          </button>
+          </Button>
           <Button
-            onClick={() => navigate(`/requisitions/${detail.id}/edit`)}
+            type="button"
             variant="outline"
-            className="text-xs font-bold"
+            onClick={() => navigate(`/requisitions/${detail.id}/edit`)}
+            className="min-h-11"
           >
             تعديل
           </Button>
           {isAdmin && (
             <Button
-              onClick={() => setConfirmDelete(true)}
-              variant="outline"
-              className="text-xs font-bold text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 border-red-200 dark:border-red-900"
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setDeleteError(null)
+                setConfirmDelete(true)
+              }}
+              className="min-h-11"
             >
-              حذف
+              حذف الطلب
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-        <Field label="المرجع الخارجي" value={detail.externalRef} />
-        <Field label="تاريخ الاستلام" value={formatDate(detail.receivedAt)} />
-        <Field label="تاريخ الاستحقاق" value={formatDate(detail.dueDate)} />
-        <Field label="العميل" value={detail.clientName} />
-        <Field label="المصنع" value={`${detail.plantName} [${detail.plantShortCode}]`} />
-        <Field label="القسم" value={`${detail.sectorCode} - ${detail.sectorName}`} />
-        <Field label="تاريخ الإنشاء" value={formatDate(detail.createdAt)} />
-      </div>
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm font-bold">معلومات الطلب</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-x-6 gap-y-5 border-t pt-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="المرجع الخارجي" value={detail.externalRef} />
+          <Field label="تاريخ الاستلام" value={formatDate(detail.receivedAt)} />
+          <Field label="تاريخ الاستحقاق" value={formatDate(detail.dueDate)} />
+          <Field label="العميل" value={detail.clientName} />
+          <Field label="المصنع" value={`${detail.plantName} [${detail.plantShortCode}]`} />
+          <Field label="القسم" value={`${detail.sectorCode} - ${detail.sectorName}`} />
+          <Field label="تاريخ الإنشاء" value={formatDate(detail.createdAt)} />
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-        <Field label="المرجع الخارجي" value={detail.externalRef} />
-        <Field label="تاريخ الاستلام" value={formatDate(detail.receivedAt)} />
-        <Field label="تاريخ الاستحقاق" value={formatDate(detail.dueDate)} />
-        <Field label="العميل" value={detail.clientName} />
-        <Field label="المصنع" value={`${detail.plantName} [${detail.plantShortCode}]`} />
-        <Field label="القسم" value={`${detail.sectorCode} - ${detail.sectorName}`} />
-        <Field label="تاريخ الإنشاء" value={formatDate(detail.createdAt)} />
-      </div>
-
-      <Separator />
-
-      <section>
-        <p className="mb-3 text-xs font-bold text-muted-foreground tracking-wide">عنوان الطلب</p>
-        <p className="text-sm font-bold leading-relaxed">{detail.title}</p>
-      </section>
-
-      {detail.clientNotes && (
-        <>
-          <Separator />
-          <section>
-            <p className="mb-3 text-xs font-bold text-muted-foreground tracking-wide">
-              ملاحظات العميل
-            </p>
-            <p className="border-s-2 border-primary/30 ps-3 text-xs leading-relaxed">
-              {detail.clientNotes}
-            </p>
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm font-bold">تفاصيل الطلب</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5 border-t pt-5">
+          <section aria-labelledby="requisition-title">
+            <h2 id="requisition-title" className="mb-2 text-xs font-bold text-muted-foreground">
+              عنوان الطلب
+            </h2>
+            <p className="text-sm font-semibold leading-relaxed">{detail.title}</p>
           </section>
-        </>
-      )}
+          {detail.clientNotes && (
+            <section aria-labelledby="client-notes-title" className="border-t pt-5">
+              <h2 id="client-notes-title" className="mb-2 text-xs font-bold text-muted-foreground">
+                ملاحظات العميل
+              </h2>
+              <p className="text-sm leading-relaxed">{detail.clientNotes}</p>
+            </section>
+          )}
+        </CardContent>
+      </Card>
 
-      <Separator />
-
-      <section>
-        <div
-          {...dropzone.handlers}
-          aria-label="منطقة إضافة المرفقات — اسحب الملفات وأفلتها هنا"
-          className={`rounded-xl border-2 border-dashed transition-colors ${
-            dropzone.isDragOver ? 'border-primary bg-primary/5' : 'border-transparent'
-          }`}
-        >
-          <div className="mb-1 flex items-center justify-between gap-3 px-1 pt-1">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-bold text-muted-foreground tracking-wide">المرفقات</p>
-              <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-bold text-muted-foreground tabular-nums">
-                {detail.attachments?.length ?? 0}
-              </span>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              hidden
-              onChange={handleAttachmentFiles}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={attachmentsBusy}
-              className="text-xs font-bold"
-            >
-              {attachmentsBusy ? 'جارٍ الرفع...' : 'إضافة ملفات'}
-            </Button>
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-4">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-sm font-bold">المرفقات</CardTitle>
+            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">
+              {detail.attachments?.length ?? 0}
+            </span>
           </div>
-          <p className="mb-3 px-1 text-[11px] text-muted-foreground">
-            اسحب الملفات وأفلتها هنا أو استخدم زر «إضافة ملفات»
-          </p>
-
-          {attachmentErrors.length > 0 && (
-          <ul className="mb-3 space-y-1">
-            {attachmentErrors.map((error, index) => (
-              <li
-                key={index}
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
-              >
-                {error}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {detail.attachments && detail.attachments.length > 0 ? (
-          <>
-            <div className="divide-y divide-border">
-              {detail.attachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center gap-4 py-3">
-                  <a href={api.attachments.downloadUrl(attachment.id)} className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold transition-colors hover:text-primary">
-                      {attachment.fileName}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                      {formatBytes(attachment.sizeBytes)} · {formatDate(attachment.uploadedAt)}
-                    </p>
-                  </a>
-                  <a
-                    href={api.attachments.downloadUrl(attachment.id)}
-                    className="shrink-0 text-[11px] font-bold text-primary transition-colors hover:underline"
-                  >
-                    تحميل
-                  </a>
-                  {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmAttachmentDelete(attachment)}
-                    className="shrink-0 text-[11px] font-bold text-red-600 hover:underline"
-                  >
-                    حذف
-                  </button>
-                )}
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] text-muted-foreground tabular-nums">
-              إجمالي {detail.attachments.length} مرفق ·{' '}
-              {formatBytes(detail.attachments.reduce((sum, a) => sum + a.sizeBytes, 0))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            aria-label="اختيار ملفات لإرفاقها بالطلب"
+            onChange={handleAttachmentFiles}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachmentsBusy}
+            className="min-h-11"
+          >
+            {attachmentsBusy ? 'جارٍ الرفع...' : 'إضافة ملفات'}
+          </Button>
+        </CardHeader>
+        <CardContent className="border-t pt-5" aria-busy={attachmentsBusy}>
+          <div
+            {...dropzone.handlers}
+            className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
+              dropzone.isDragOver ? 'border-primary bg-primary/5' : 'border-border'
+            }`}
+          >
+            <p className="mb-4 text-sm text-muted-foreground">
+              اسحب الملفات وأفلتها هنا أو استخدم زر «إضافة ملفات»
             </p>
-          </>
-        ) : (
-          <p className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-6 text-center text-xs text-muted-foreground">
-            لا توجد مرفقات لهذا الطلب
-          </p>
-        )}
-        </div>
-      </section>
+
+            {attachmentErrors.length > 0 && (
+              <ul role="alert" className="mb-4 space-y-2">
+                {attachmentErrors.map((error, index) => (
+                  <li
+                    key={index}
+                    className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                  >
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {detail.attachments && detail.attachments.length > 0 ? (
+              <>
+                <ul className="divide-y divide-border">
+                  {detail.attachments.map((attachment) => (
+                    <li key={attachment.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <a
+                        href={api.attachments.downloadUrl(attachment.id)}
+                        dir="ltr"
+                        className="min-w-0 flex-1 rounded-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="block truncate text-sm font-semibold hover:text-primary">
+                          {attachment.fileName}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">
+                          {formatBytes(attachment.sizeBytes)} · {formatDate(attachment.uploadedAt)}
+                        </span>
+                      </a>
+                      <a
+                        href={api.attachments.downloadUrl(attachment.id)}
+                        className="min-h-11 rounded-sm px-2 py-2 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        تحميل
+                      </a>
+                      {isAdmin && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setAttachmentDeleteError(null)
+                            setConfirmAttachmentDelete(attachment)
+                          }}
+                          className="min-h-11 text-destructive hover:text-destructive"
+                        >
+                          حذف
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 border-t pt-3 text-xs text-muted-foreground tabular-nums">
+                  إجمالي {detail.attachments.length} مرفق ·{' '}
+                  {formatBytes(
+                    detail.attachments.reduce((sum, attachment) => sum + attachment.sizeBytes, 0)
+                  )}
+                </p>
+              </>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-sm text-muted-foreground">
+                لا توجد مرفقات لهذا الطلب
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {allowed.length > 0 && (
-        <>
-          <Separator />
-
-          <section>
-            <p className="mb-3 text-xs font-bold text-muted-foreground tracking-wide">
-              تغيير الحالة
-            </p>
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-bold">تغيير الحالة</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 border-t pt-5">
             <div className="space-y-2">
+              <Label htmlFor="status-change-notes">وصف التغيير</Label>
               <Textarea
+                id="status-change-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="وصف التغيير (مطلوب)"
-                className="min-h-[60px] text-xs"
+                placeholder="اكتب سبب تغيير الحالة"
+                disabled={busy}
+                aria-invalid={Boolean(statusError)}
+                aria-describedby={statusError ? 'status-change-error' : undefined}
+                className="min-h-24"
               />
               {statusError && (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                <p id="status-change-error" role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {statusError}
                 </p>
               )}
-              <div className="flex flex-wrap gap-2">
-                {allowed.map((target) => (
-                  <Button
-                    key={target}
-                    variant="outline"
-                    onClick={() => handleStatusChange(target)}
-                    disabled={busy}
-                    className="px-3 py-2 text-xs font-semibold"
-                  >
-                    تحويل إلى: {STATUS_META[target].label}
-                  </Button>
-                ))}
-              </div>
             </div>
-          </section>
-        </>
+            <div className="flex flex-wrap gap-2">
+              {allowed.map((target) => (
+                <Button
+                  key={target}
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleStatusChange(target)}
+                  disabled={busy}
+                  className="min-h-11"
+                >
+                  {busy ? 'جارٍ التحديث...' : `تحويل إلى: ${STATUS_META[target].label}`}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <Separator />
-
-      <section>
-        <p className="mb-4 text-xs font-bold text-muted-foreground tracking-wide">
-          سجل العمليات والتدقيق
-        </p>
-        {detail.auditLogs && detail.auditLogs.length > 0 ? (
-          <div>
-            {detail.auditLogs.map((log, index) => {
-              const actionMeta = AUDIT_ACTION_META[log.action] ?? {
-                label: log.action,
-                tone: 'bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700',
-              }
-              const isLast = index === detail.auditLogs!.length - 1
-              return (
-                <div key={log.id} className="relative ps-5 pb-5 last:pb-0">
-                  {!isLast && (
-                    <span className="absolute start-0 top-1.5 h-[calc(100%-0.5rem)] w-px bg-border" />
-                  )}
-                  <span
-                    className={`absolute start-0 top-1 h-2 w-2 -translate-x-1/2 rounded-full ${actionMeta.tone}`}
-                  />
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold">{actionMeta.label}</span>
-                    <span className="text-[11px] text-muted-foreground tabular-nums">
-                      {formatDateTime(log.createdAt)}
-                    </span>
-                  </div>
-                  {(log.statusFrom || log.statusTo) && (
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {log.statusFrom && STATUS_META[log.statusFrom as RequisitionStatus]?.label}
-                      {log.statusFrom && log.statusTo && ' ← '}
-                      {log.statusTo && STATUS_META[log.statusTo as RequisitionStatus]?.label}
-                    </p>
-                  )}
-                  {log.notes && (
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {log.notes}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="py-4 text-center text-xs text-muted-foreground">لا توجد سجلات تدقيق</p>
-        )}
-      </section>
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm font-bold">سجل العمليات والتدقيق</CardTitle>
+        </CardHeader>
+        <CardContent className="border-t pt-5">
+          {detail.auditLogs && detail.auditLogs.length > 0 ? (
+            <ol className="space-y-5">
+              {detail.auditLogs.map((log) => {
+                const actionMeta = AUDIT_ACTION_META[log.action] ?? {
+                  label: log.action,
+                  tone: 'bg-muted text-muted-foreground border-border',
+                }
+                return (
+                  <li key={log.id} className="relative border-s border-border ps-4 last:border-transparent">
+                    <span
+                      aria-hidden="true"
+                      className={`absolute start-0 top-1.5 h-2 w-2 -translate-x-1/2 rounded-full border ${actionMeta.tone}`}
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{actionMeta.label}</p>
+                      <time dateTime={log.createdAt} className="text-xs text-muted-foreground tabular-nums">
+                        {formatDateTime(log.createdAt)}
+                      </time>
+                    </div>
+                    {(log.statusFrom || log.statusTo) && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {log.statusFrom && STATUS_META[log.statusFrom as RequisitionStatus]?.label}
+                        {log.statusFrom && log.statusTo && ' ← '}
+                        {log.statusTo && STATUS_META[log.statusTo as RequisitionStatus]?.label}
+                      </p>
+                    )}
+                    {log.notes && (
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {log.notes}
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">لا توجد سجلات تدقيق</p>
+          )}
+        </CardContent>
+      </Card>
 
       <AlertDialog open={confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(false)}>
         <AlertDialogContent className="max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm font-black">تأكيد الحذف</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
+            <AlertDialogTitle>تأكيد حذف الطلب</AlertDialogTitle>
+              <AlertDialogDescription>
               هل أنت متأكد من حذف الطلب{' '}
               <span className="font-bold text-foreground">{detail.identifier}</span>؟ سيتم حذف جميع
               سجلاته نهائياً.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {deleteError}
             </p>
           )}
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+          <AlertDialogFooter>
             <Button
+              type="button"
               variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
-              className="w-full text-xs font-bold"
+              className="min-h-11"
             >
               {deleting ? 'جارٍ الحذف...' : 'حذف'}
             </Button>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setConfirmDelete(false)}
               disabled={deleting}
-              className="w-full text-xs font-semibold"
+              className="min-h-11"
             >
               إلغاء
             </Button>
@@ -540,8 +579,8 @@ export function RequisitionDetailPage() {
       >
         <AlertDialogContent className="max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm font-black">تأكيد حذف المرفق</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
+            <AlertDialogTitle>تأكيد حذف المرفق</AlertDialogTitle>
+            <AlertDialogDescription>
               هل أنت متأكد من حذف المرفق{' '}
               <span dir="ltr" className="font-bold text-foreground">
                 {confirmAttachmentDelete?.fileName}
@@ -550,24 +589,26 @@ export function RequisitionDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           {attachmentDeleteError && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {attachmentDeleteError}
             </p>
           )}
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+          <AlertDialogFooter>
             <Button
+              type="button"
               variant="destructive"
               onClick={handleAttachmentDelete}
               disabled={attachmentDeleting}
-              className="w-full text-xs font-bold"
+              className="min-h-11"
             >
               {attachmentDeleting ? 'جارٍ الحذف...' : 'حذف'}
             </Button>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setConfirmAttachmentDelete(null)}
               disabled={attachmentDeleting}
-              className="w-full text-xs font-semibold"
+              className="min-h-11"
             >
               إلغاء
             </Button>
