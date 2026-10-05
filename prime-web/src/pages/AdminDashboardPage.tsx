@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -306,14 +306,9 @@ export function AdminDashboardPage() {
         </p>
       )}
 
-      <section
-        aria-label="حالة النظام والنسخ الاحتياطية"
-        className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
-      >
+      <section aria-labelledby="system-health-heading" className="space-y-3">
+        <h2 id="system-health-heading" className="text-sm font-black">حالة النظام</h2>
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-sm font-black">حالة النظام</CardTitle>
-          </CardHeader>
           <CardContent className="space-y-4">
             {healthError ? (
               <p role="alert" className="text-sm text-destructive">{healthError}</p>
@@ -373,20 +368,25 @@ export function AdminDashboardPage() {
             )}
           </CardContent>
         </Card>
+      </section>
 
+      <section aria-labelledby="backups-heading" className="space-y-3">
+        <h2 id="backups-heading" className="text-sm font-black">النسخ الاحتياطية</h2>
         <Card>
-          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-sm font-black">النسخ الاحتياطية</CardTitle>
-            <Button
-              onClick={handleExportBackup}
-              disabled={exportingBackup}
-              aria-busy={exportingBackup}
-              className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
-            >
-              {exportingBackup ? 'جارٍ التصدير…' : 'تصدير نسخة احتياطية'}
-            </Button>
-          </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-prose text-sm text-muted-foreground">
+                أنشئ نسخة احتياطية لحماية بيانات النظام.
+              </p>
+              <Button
+                onClick={handleExportBackup}
+                disabled={exportingBackup}
+                aria-busy={exportingBackup}
+                className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+              >
+                {exportingBackup ? 'جارٍ التصدير…' : 'تصدير نسخة احتياطية'}
+              </Button>
+            </div>
             {exportError && (
               <p role="alert" className="text-sm text-destructive">{exportError}</p>
             )}
@@ -457,14 +457,9 @@ export function AdminDashboardPage() {
         </Card>
       </section>
 
-      <section
-        aria-label="المستخدمون والعملاء"
-        className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
-      >
+      <section aria-labelledby="users-heading" className="space-y-3">
+        <h2 id="users-heading" className="text-sm font-black">المستخدمون</h2>
         <Card className="overflow-hidden">
-          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-sm font-black">المستخدمون</CardTitle>
-          </CardHeader>
           {adminStats?.recentUsers.length ? (
             <Table className="min-w-[560px]">
               <TableCaption className="sr-only">قائمة المستخدمين وحالة الحساب ووقت آخر تسجيل دخول</TableCaption>
@@ -527,11 +522,11 @@ export function AdminDashboardPage() {
             </CardContent>
           )}
         </Card>
+      </section>
 
+      <section aria-labelledby="clients-heading" className="space-y-3">
+        <h2 id="clients-heading" className="text-sm font-black">العملاء</h2>
         <Card className="overflow-hidden">
-          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-sm font-black">العملاء</CardTitle>
-          </CardHeader>
           {adminStats?.topClients.length ? (
             <Table className="min-w-[360px]">
               <TableCaption className="sr-only">قائمة العملاء وعدد طلباتهم</TableCaption>
