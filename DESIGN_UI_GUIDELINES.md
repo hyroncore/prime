@@ -1,105 +1,73 @@
 # TTSM Design & UI Guidelines
 
-> **Primary accent color:** `#415a77` / `var(--primary)` — applied via `className="bg-primary text-primary-foreground"` or inline for dynamic cases. Used for primary buttons, active states, focus rings, and interactive highlights.
->
-> **Border palette:** `#d4dce6` (border, `212 18% 86%`) for dividers/card borders, `#b8c6d8` (border-hover, `212 22% 78%`) for interactive borders on hover. Already set via `--border` and configurable via Tailwind.
->
-> **Icons:** ZERO icons anywhere — no `lucide-react`, no SVGs, no emoji-as-icons. Use pure typography, spacing, backgrounds, and borders for visual hierarchy.
+This document is the shared visual and interaction standard for the React application. Follow existing component patterns first, then use these guidelines to keep new and updated pages consistent.
 
----
+## 1. Design principles
 
-## 1. Core Design Principles
+- **Clean and minimal:** prioritize clear hierarchy, concise content, and generous but purposeful spacing. Include only information and actions relevant to the task.
+- **Use cards with intent:** use shadcn `Card` to group related information or actions, as on the Account page. Avoid nested cards, decorative panels, and putting every form or page inside a card.
+- **Use the shared design system:** prefer existing shadcn components, theme tokens, and project helpers over one-off styling.
+- **Typography over decoration:** establish hierarchy with font size, weight, and muted text; do not rely on icons or color alone.
+- **No icons:** do not add icon libraries, SVG icons, or emoji as icons. Use text and layout to communicate.
+- **Support light and dark themes:** use semantic theme tokens and verify contrast in both themes.
+- **Arabic and RTL by default:** pages are Arabic RTL unless the product requirement says otherwise.
 
-| Principle | Rule |
-|-----------|------|
-| **No icons** | Zero icon imports or SVGs. Communicate with text labels, spacing, borders, backgrounds. |
-| **Shadcn UI** | Use shadcn primitives: `Card`, `Button`, `Input`, `Badge`, `Separator`, `Table`, `Sheet`, `AlertDialog`, `Skeleton`, `Dialog`. |
-| **Subtle shadows** | Use Tailwind shadow classes: `shadow-sm` on cards, `shadow-md` on elevated elements. |
-| **Rounded corners** | shadcn defaults: `rounded-xl` for cards, `rounded-lg` for buttons/inputs, `rounded-full` for badges. |
-| **Clean and minimal** | Prefer clear hierarchy, generous spacing, and concise content. Show only the information and actions needed for the task; avoid decorative panels, duplicate labels, and unnecessary controls. |
-| **#415a77 accent** | Primary accent for CTAs, active nav, selection highlights, focus rings (`ring-primary/40`). |
-| **Monochrome text** | Hierarchy via weight (`font-semibold`, `font-bold`, `font-black`) and contrast (`text-muted-foreground`, `text-foreground`). |
-| **RTL Arabic** | Set `dir="rtl"` at the page root. Prefer logical utilities (`text-start`, `ms-*`/`me-*`, `ps-*`/`pe-*`, `start-*`/`end-*`) over physical left/right utilities so layout remains direction-safe. |
+## 2. Theme and visual language
 
----
+Use theme tokens rather than hard-coded colors for standard UI:
 
-## 2. Page Layout
+| Token | Value / purpose |
+|---|---|
+| `bg-background`, `text-foreground` | Main page surface and primary text |
+| `bg-card`, `text-card-foreground` | Card surfaces and their text |
+| `bg-muted`, `text-muted-foreground` | Subtle fills, helper text, labels, and secondary information |
+| `bg-primary`, `text-primary-foreground` | Primary actions and selected states |
+| `border-border`, `border-input` | Dividers, cards, and form controls |
+| `ring-primary` | Keyboard focus indication |
 
-### 2.1 Page Shell
+The primary accent is `#415a77` (`var(--primary)`). The standard border is `#d4dce6`; interactive border hover may use `#b8c6d8` where appropriate. Avoid gradients and unnecessary decorative color.
+
+Use the shared corner conventions: `rounded-xl` for cards, `rounded-lg` for buttons and inputs, and `rounded-full` for compact badges. Apply shadows only to communicate elevation; do not add extra shadows to otherwise flat, minimal account or form pages.
+
+## 3. RTL, layout, and responsive behavior
+
+- Put `dir="rtl"` on every Arabic page root.
+- Prefer logical CSS utilities: `text-start`, `ms-*`/`me-*`, `ps-*`/`pe-*`, and `start-*`/`end-*`. Avoid physical left/right utilities for directional layout.
+- Keep mixed-direction values such as usernames, emails, and passwords readable by setting `dir="ltr"` on the value/control itself.
+- Use responsive grids and wrapping rows. Avoid fixed widths that overflow on mobile; controls should remain usable without horizontal scrolling.
+- Give interactive controls visible `focus-visible` rings and sufficient hit areas. Standalone form controls and primary actions should be at least 44px tall; dense table controls may be smaller when still usable.
+- Use consistent spacing (`space-y-6` for major page sections; `space-y-7` is suitable between standalone form fields).
+
+## 4. Page shell and hierarchy
+
+Use a consistent page title and optional short subtitle. Place the page’s primary action beside the heading when appropriate; do not add a subtitle that merely repeats the title.
 
 ```jsx
 <div dir="rtl" className="space-y-6">
-  <div className="flex items-center justify-between">
+  <header className="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <h1 className="text-2xl font-black tracking-tight">Page Title</h1>
-      <p className="text-sm text-muted-foreground mt-0.5">Page subtitle</p>
+      <h1 className="text-2xl font-black tracking-tight">عنوان الصفحة</h1>
+      <p className="mt-0.5 text-sm text-muted-foreground">وصف مختصر عند الحاجة</p>
     </div>
     <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
-      Action
+      إجراء رئيسي
     </Button>
-  </div>
-  ...
+  </header>
+  {/* Page content */}
 </div>
 ```
 
-### 2.2 KPI Metric Cards
+### 4.1 Clean account and settings pages
 
-```jsx
-<div className="grid grid-cols-4 gap-4">
-  {stats.map((stat, i) => (
-    <Card key={i} className="p-5">
-      <p className="text-xs font-bold text-muted-foreground tracking-wide mb-2">{stat.title}</p>
-      <div className="text-2xl font-black">{stat.value}</div>
-      <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{stat.subtitle}</p>
-    </Card>
-  ))}
-</div>
-```
+Use the Account page as the reference for profile, security, and preference screens:
 
-### 2.3 Loading State
-
-```jsx
-if (loading) return (
-  <div className="space-y-5">
-    <div className="flex items-center justify-between">
-      <div>
-        <Skeleton className="h-8 w-48 rounded-lg mb-2" />
-        <Skeleton className="h-4 w-64 rounded-lg" />
-      </div>
-      <Skeleton className="h-9 w-28 rounded-lg" />
-    </div>
-    <div className="grid grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i} className="p-5">
-          <Skeleton className="h-3 w-24 rounded mb-3" />
-          <Skeleton className="h-7 w-32 rounded mb-1" />
-          <Skeleton className="h-3 w-20 rounded" />
-        </Card>
-      ))}
-    </div>
-    <Card>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 p-4 border-b border-border last:border-b-0">
-          {Array.from({ length: 8 }).map((_, j) => (
-            <Skeleton key={j} className="h-4 flex-1 rounded" />
-          ))}
-        </div>
-      ))}
-    </Card>
-  </div>
-);
-```
-
-### 2.4 Clean Account and Settings Cards
-
-Use the Account page as the reference for compact profile, security, and preference sections:
-
-- Keep the page shell simple and readable (`max-w-3xl`, `space-y-6`) with one clear title and a short subtitle.
-- Group related information and actions into separate shadcn `<Card>` sections. Give each card a concise `<CardTitle>` and keep its contents in `<CardContent>`; do not add nested cards or decorative containers.
-- Present identity and account details as a compact heading/role badge followed by a responsive details grid. Use small muted labels above clear values and a subtle divider between the heading and details.
-- Present each setting or security action as one row: explain the item briefly, then place its control or action beside it. On narrow screens, allow the row to wrap or stack without clipping.
-- Keep destructive or session-level actions, such as signing out, outside the informational cards in a restrained footer row. Avoid adding unrelated profile fields or actions just to fill space.
-- Preserve the shared theme tokens, dark-mode support, and visible focus states. Cards should organize useful content, not add decoration; use the standard card treatment without extra shadows or borders unless the component pattern calls for them.
+- Keep the page shell readable and focused (for example, `mx-auto max-w-3xl space-y-6`).
+- Place each related topic in its own shadcn `Card`, with a concise `CardTitle` and content in `CardContent`.
+- Do not add nested cards or decorative containers. Cards should group meaningful content, not serve as decoration.
+- For account details, show a compact identity heading and optional role badge, then a responsive details grid. Use a small muted label above each clear value and a subtle divider where it improves grouping.
+- For security or preference settings, use a simple row with a short explanation and its action/control. Allow rows to stack or wrap on narrow screens.
+- Place global or session-level actions such as sign out outside informational cards in a restrained footer area.
+- Keep only relevant account data and actions; do not add avatar/image elements or filler content.
 
 ```jsx
 <div dir="rtl" className="mx-auto max-w-3xl space-y-6">
@@ -128,406 +96,191 @@ Use the Account page as the reference for compact profile, security, and prefere
 </div>
 ```
 
----
+### 4.2 KPI cards
 
-## 3. Tables
-
-### 3.1 shadcn Table
+Use metric cards when they help users scan a small set of important totals. Keep titles muted, values prominent, and supporting text brief. Make the grid responsive rather than forcing four columns at every viewport.
 
 ```jsx
-<Card className="overflow-hidden">
-  <Table>
-    <TableHeader>
-      <TableRow className="border-b border-border hover:bg-transparent">
-        {columns.map((col) => (
-          <TableHead key={col.key}
-            className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4"
-          >
-            {col.label}
-          </TableHead>
-        ))}
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {data.length === 0 ? (
-        <TableRow>
-          <TableCell colSpan={8} className="px-4 py-12 text-center text-muted-foreground text-sm">
-            لا توجد نتائج
-          </TableCell>
-        </TableRow>
-      ) : data.map((row) => (
-        <TableRow key={row.id}
-          className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-        >
-          <TableCell className="px-4 py-3.5">
-            <span className="text-xs font-bold">{row.value}</span>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-</Card>
-```
-
-### 3.2 Sortable Columns
-
-3-state: `asc → desc → none`.
-
-```jsx
-<TableHead className="...">
-  <button onClick={() => handleSort(key)}
-    className="inline-flex items-center cursor-pointer hover:text-foreground"
-  >
-    {label}
-    {sortKey === key && <SortIndicator direction={sortDir} />}
-  </button>
-</TableHead>
-
-function SortIndicator({ direction }) {
-  if (!direction) return null;
-  return <span className="text-[10px] font-bold ms-1">{direction === 'asc' ? '↑' : '↓'}</span>;
-}
-```
-
-### 3.3 Actions Column
-
-```jsx
-<TableCell className="px-4 py-3.5 text-center">
-  <button onClick={() => setDrawerId(row.id)}
-    className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-  >
-    عرض
-  </button>
-</TableCell>
-```
-
-### 3.4 Pagination
-
-```jsx
-<div className="flex items-center justify-between px-4 py-3 border-t border-border">
-  <span className="text-xs text-muted-foreground">عرض {filtered} من إجمالي {total}</span>
-  <div className="flex items-center gap-2">
-    <button disabled={page <= 1} onClick={prevPage}
-      className="text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-default"
-    >السابق</button>
-    <span className="text-xs text-muted-foreground">صفحة {page} من {totalPages}</span>
-    <button disabled={page >= totalPages} onClick={nextPage}
-      className="text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-default"
-    >التالي</button>
-  </div>
-</div>
-```
-
----
-
-## 4. Search & Filter
-
-### 4.1 Search
-
-```jsx
-<Input
-  placeholder="بحث..."
-  value={searchTerm}
-  onChange={(e) => setSearchTerm(e.target.value)}
-  className="h-9 text-sm max-w-md"
-/>
-```
-
-### 4.2 Filter Tabs (2-3 options)
-
-```jsx
-<div className="flex gap-1 border border-border rounded-lg p-1 bg-card">
-  {tabs.map((tab) => (
-    <button key={tab.key} onClick={() => setFilter(tab.key)}
-      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-        activeTab === tab.key ? 'bg-card border border-border text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >{tab.label}</button>
+<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {stats.map((stat) => (
+    <Card key={stat.title} className="p-5">
+      <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">{stat.title}</p>
+      <p className="text-2xl font-black">{stat.value}</p>
+      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{stat.subtitle}</p>
+    </Card>
   ))}
 </div>
 ```
 
-### 4.3 Filter Dropdown (4+)
+### 4.3 Loading states
+
+Use the shared `Skeleton` component to preserve the shape of the content being loaded. Avoid using `animate-pulse` on non-skeleton content.
 
 ```jsx
-<div className="relative">
-  <button onClick={() => setShowFilter(!showFilter)}
-    className="text-xs font-semibold text-muted-foreground hover:bg-muted px-3 py-1.5 rounded-lg transition-colors"
-  >تصفية</button>
-  {showFilter && (
-    <div className="absolute top-full start-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-md z-10 py-1">
-      {options.map((opt) => (
-        <button key={opt.key} onClick={() => { setFilter(opt.key); setShowFilter(false); }}
-          className={`w-full text-start px-3 py-1.5 text-xs transition-colors ${
-            activeFilter === opt.key ? 'bg-muted font-bold text-primary' : 'hover:bg-muted/50'
-          }`}
-        >{opt.label}</button>
-      ))}
-      {activeFilter && (
-        <>
-          <div className="border-t border-border my-1" />
-          <button onClick={() => { setFilter(null); setShowFilter(false); }}
-            className="w-full text-start px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-          >إظهار الكل</button>
-        </>
-      )}
-    </div>
-  )}
+<div className="space-y-5">
+  <div>
+    <Skeleton className="mb-2 h-8 w-48 rounded-lg" />
+    <Skeleton className="h-4 w-64 rounded-lg" />
+  </div>
+  <Card className="space-y-4 p-5">
+    <Skeleton className="h-4 w-32 rounded" />
+    <Skeleton className="h-7 w-48 rounded" />
+    <Skeleton className="h-4 w-full rounded" />
+  </Card>
 </div>
 ```
 
----
+## 5. Tables, search, and filters
 
-## 5. Status Badges
-
-All badges use shadcn default size with `rounded-full py-0` for a compact pill shape. Dark mode uses `*-950/40` background, `*-400` text, and `*-800` border.
+Use semantic shadcn table components for tabular data. Wrap wide tables in a responsive horizontal scroller when needed. Keep row content aligned, concise, and readable at mobile sizes.
 
 ```jsx
-import { Badge } from '../components/ui/badge';
-
-const statusConfig = {
-  paid:    { label: 'مدفوعة', class: 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/60' },
-  partial: { label: 'مدفوعة جزئيا', class: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950/60' },
-  pending: { label: 'معلقة', class: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-950/60' },
-  overdue: { label: 'متأخرة', class: 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/60' },
-  inactive: { label: 'موقف', class: 'bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/60' },
-};
-
-<Badge variant="outline" className={`rounded-full py-0 ${cfg.class}`}>
-  {cfg.label}
-</Badge>
+<Card className="overflow-hidden">
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow className="border-b border-border hover:bg-transparent">
+          {columns.map((column) => (
+            <TableHead key={column.key} className="h-10 px-4 text-[11px] font-bold tracking-wider text-muted-foreground">
+              {column.label}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="px-4 py-12 text-center text-sm text-muted-foreground">
+              لا توجد نتائج
+            </TableCell>
+          </TableRow>
+        ) : rows.map((row) => (
+          <TableRow key={row.id} className="border-b border-border last:border-0 transition-colors hover:bg-muted/40">
+            <TableCell className="px-4 py-3.5 text-xs font-semibold">{row.label}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+</Card>
 ```
 
-For muted (InvoicesPage style — all gray, overdue uses `text-primary`):
+- **Sorting:** use a clear button in the header and expose the current direction accessibly. If a text indicator is used, keep it simple and direction-safe.
+- **Row actions:** use concise text actions; do not add icon-only controls.
+- **Pagination:** show the visible range and current page, and disable unavailable previous/next actions.
+- **Search:** use a labeled or clearly described `Input`; keep its width responsive and avoid relying on placeholder text as its only accessible name.
+- **Filters:** use tabs for two or three mutually exclusive options. For larger sets, use an accessible select, popover, or menu from the shared component library instead of a hand-built positioned dropdown.
+
+## 6. Badges and status
+
+Use the shared `Badge` component for short statuses and roles. Keep labels concise, maintain readable contrast in both themes, and use consistent color meanings across the product. Badges should not be the only way status is communicated.
+
+Typical semantic colors:
+
+| Meaning | Light theme | Dark theme |
+|---|---|---|
+| Success / active | `bg-green-100 text-green-700 border-green-200` | `dark:bg-green-950/40 dark:text-green-400 dark:border-green-800` |
+| In progress / warning | `bg-amber-100 text-amber-700 border-amber-200` | `dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800` |
+| Error / danger | `bg-red-100 text-red-700 border-red-200` | `dark:bg-red-950/40 dark:text-red-400 dark:border-red-800` |
+| Informational | `bg-blue-100 text-blue-700 border-blue-200` | `dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800` |
+| Neutral / inactive | `bg-gray-100 text-gray-700 border-gray-200` | `dark:bg-gray-900/40 dark:text-gray-400 dark:border-gray-700` |
+
+For compact status pills, use `variant="outline"` with `rounded-full py-0`. Prefer the shared tokens or established status styles already used in the relevant feature.
+
+## 7. Forms
+
+Use the shared form primitives and follow the established `ClientFormDialog` and user-creation patterns. Labels belong above their controls in standalone forms.
+
+| Control | Guidance |
+|---|---|
+| Text input | Use shadcn `Input`; minimum `h-11` on standalone pages and at least `h-9` in dense layouts |
+| Select | Prefer the existing accessible select component; match adjacent control heights |
+| Radio group | Use for a small set of mutually exclusive options, especially when each option needs a description |
+| Switch | Use the shared `Switch` for binary state and provide an accessible label and helper text when needed |
+| Date / file input | Use native controls only where suitable; style to match shared borders, height, and focus treatment |
+
+### 7.1 Standalone create/edit pages
+
+Use `/users/new` as the reference for focused, full-page forms:
+
+- Use a single-column page shell (around `max-w-[520px]`) without a surrounding card or decorative panel.
+- Start with a text-only back link, then a clear title and short subtitle.
+- Separate fields with generous, consistent vertical spacing. Use full-width controls and visible focus rings.
+- Keep page-specific labels, hints, validation messages, and action text together in a constants object to support future translation.
+- Use LTR direction on mixed-direction values, such as usernames or passwords, while keeping the page RTL.
+- Choose controls based on the data: a vertical radio group for a few described roles, a labeled switch for a binary active state.
+- Keep one filled primary submit action and a ghost cancel action. In RTL, place the primary action first in DOM order so it appears on the right. Stack full-width actions on narrow screens.
+
+### 7.2 Validation and submission
+
+- Validate on blur and submit; after an error is shown, revalidate that field on change.
+- Connect labels, hints, and errors to their controls. Set `aria-invalid` and `aria-describedby` where relevant and announce validation errors with `role="alert"`.
+- Focus the first invalid control after a failed client-side submission.
+- Disable duplicate submission while saving and expose the state with `aria-busy`; use concise progress text.
+- Show successful completion with the standard toast and navigate only when appropriate.
+- Put server-side field errors beside the corresponding field. Do not swallow failures or show success-shaped fallbacks.
+
+## 8. Buttons and interaction states
+
+- Use one clear primary action per section or form. Secondary actions should use the shared outline or ghost variants.
+- Keep button labels action-oriented and concise. Ensure hit targets are usable and focus states visible.
+- Disabled controls must be visibly disabled and actually non-interactive.
+- Use subtle hover states and transitions; avoid unnecessary animation.
 
 ```jsx
-const mutedConfig = {
-  paid:    { label: 'مدفوعة', class: 'bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/60' },
-  partial: { label: 'مدفوعة جزئيا', class: 'bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/60' },
-  pending: { label: 'معلقة', class: 'bg-gray-100 dark:bg-gray-900/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/60' },
-  overdue: { label: 'متأخرة', class: 'bg-gray-100 dark:bg-gray-900/40 text-primary dark:text-primary border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/60' },
-};
-
-<Badge variant="outline" className={`rounded-full py-0 ${cfg.class}`}>
-  {cfg.label}
-</Badge>
+<Button className="bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]">
+  حفظ
+</Button>
+<Button variant="ghost">إلغاء</Button>
 ```
 
----
+## 9. Dialogs, confirmations, and drawers
 
-## 6. Drawers
+Use shared Radix/shadcn primitives for overlays; do not recreate focus management, keyboard handling, or modal behavior by hand.
+
+- **Dialog:** keep it focused on one task. Put the title first, group related fields, and make actions easy to reach on mobile.
+- **Destructive confirmation:** state the consequence clearly and name the affected item when possible. Make the destructive action explicit; provide a clear cancel action.
+- **Drawer / sheet:** use for contextual details or workflows that benefit from preserving the list behind them. Set RTL direction on the content and make long content scrollable.
+- Keep overlay content simple. Use separators and spacing rather than nested cards.
 
 ```jsx
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
-
-<Sheet open={!!drawerId} onOpenChange={(open) => { if (!open) setDrawerId(null); }}>
-  <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto" dir="rtl">
+<Sheet open={open} onOpenChange={setOpen}>
+  <SheetContent side="right" dir="rtl" className="w-full overflow-y-auto sm:max-w-lg">
     <SheetHeader className="mb-6">
-      <SheetTitle className="text-base font-black">Title</SheetTitle>
+      <SheetTitle className="text-base font-black">تفاصيل العنصر</SheetTitle>
     </SheetHeader>
-    {/* content */}
+    <div className="space-y-6 px-6 py-5">
+      {/* Related details grouped by section */}
+    </div>
   </SheetContent>
 </Sheet>
 ```
 
----
+## 10. Typography reference
 
-## 7. Delete Confirmation
-
-```jsx
-<AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-  <AlertDialogContent className="max-w-sm">
-    <AlertDialogHeader>
-      <AlertDialogTitle className="text-sm font-black">تأكيد الحذف</AlertDialogTitle>
-      <AlertDialogDescription className="text-xs">
-        هل أنت متأكد من حذف <span className="font-bold text-foreground">{name}</span>؟
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full text-xs font-bold"
-        onClick={handleDelete}
-      >حذف</Button>
-      <Button variant="outline" onClick={() => setShowDeleteDialog(false)}
-        className="w-full text-xs font-semibold"
-      >إلغاء</Button>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
-```
-
----
-
-## 8. Modal Dialogs
-
-```jsx
-<Dialog open={showModal} onOpenChange={setShowModal}>
-  <DialogContent className="max-w-sm">
-    <DialogHeader>
-      <DialogTitle className="text-sm font-black">Modal Title</DialogTitle>
-    </DialogHeader>
-    {/* form fields */}
-    <div className="flex flex-col gap-2">
-      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full text-xs font-bold">
-        حفظ
-      </Button>
-      <Button variant="outline" onClick={() => setShowModal(false)} className="w-full text-xs font-semibold">
-        إلغاء
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
-```
-
----
-
-## 9. Forms
-
-| Element | Component | Notes |
-|---------|-----------|-------|
-| Text input | `<Input>` | shadcn `rounded-lg`; use `h-11` for standalone forms and at least `h-9` in dense layouts |
-| Select | `<select>` native | `rounded-lg border border-input`; match the height of neighboring controls |
-| Toggle | `<Switch>` | Use the shared Switch component and provide an accessible label |
-| File input | Native `<input type="file">` | Standard border styling |
-| Date | `<input type="date">` | Match Input border and height classes |
-
-### 9.1 Standalone Create/Edit Pages
-
-Use the `/users/new` page as the reference pattern for focused account-creation forms:
-
-- Put `dir="rtl"` on the page root and constrain the content to a single column (`max-w-[520px]`); do not add a card, decorative panel, or page-level shadow.
-- Start with a text-only back link, then a page title and a short subtitle. Keep the page hierarchy and spacing generous but compact (`space-y-6` between major groups).
-- Place each field label above its control. Use full-width, minimum 44px (`h-11`) inputs, switches, and action buttons, with the standard theme tokens and visible `focus-visible` rings.
-- Keep labels, hints, validation messages, and action copy in one page-specific constants object so UI text can be translated consistently.
-- Prefer the logical utilities from the RTL rule above. For mixed-direction values such as usernames and passwords, set `dir="ltr"` on the input itself while retaining the RTL page layout.
-- Choose controls that expose meaningful choices directly. For a small set of roles with descriptions, use a vertical radio group; for a binary account state, use a labeled switch with helper text. Avoid replacing these with generic dropdowns or unlabeled toggles.
-- Validate on blur and submit. After a field has an error, revalidate it on change. Associate errors and hints with their controls using `aria-invalid` and `aria-describedby`, announce errors with `role="alert"`, and focus the first invalid field after an unsuccessful submit.
-- Keep one filled primary action and a ghost cancel action. In RTL, put the primary action first in DOM order so it appears on the right; stack both as full-width buttons below 480px. Disable repeat submission while saving and expose the busy state to assistive technology.
-- On success, show the standard toast and navigate to the relevant list. Surface server-side field errors beside the matching field instead of replacing them with a generic success-shaped fallback.
-
-```jsx
-<div dir="rtl" className="mx-auto max-w-[520px] space-y-6">
-  <header className="space-y-3">
-    <Link to="/users" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-      العودة للمستخدمين
-    </Link>
-    <div>
-      <h1 className="text-2xl font-black tracking-tight">إضافة مستخدم جديد</h1>
-      <p className="mt-0.5 text-sm text-muted-foreground">إنشاء حساب دخول جديد مع صلاحية دور محدد</p>
-    </div>
-  </header>
-
-  <form className="space-y-7">
-    {/* Each field uses a label above its full-width control, with hint/error text below. */}
-    <div className="flex flex-col gap-3 pt-1 min-[480px]:flex-row">
-      <Button type="submit" className="h-11 w-full bg-primary text-primary-foreground min-[480px]:w-auto">
-        حفظ المستخدم
-      </Button>
-      <Button type="button" variant="ghost" className="h-11 w-full min-[480px]:w-auto">
-        إلغاء
-      </Button>
-    </div>
-  </form>
-</div>
-```
-
----
-
-## 10. Typography Scale
-
-| Context | Classes |
-|---------|---------|
+| Context | Typical classes |
+|---|---|
 | Page title | `text-2xl font-black tracking-tight` |
-| Page subtitle | `text-sm text-muted-foreground mt-0.5` |
-| Metric value | `text-2xl font-black` |
-| Metric title | `text-xs font-bold text-muted-foreground tracking-wide` |
-| Metric subtitle | `text-[11px] text-muted-foreground font-medium mt-0.5` |
-| Section header | `text-xs font-bold text-muted-foreground tracking-wide mb-3` |
-| Table header | `text-[11px] font-bold text-muted-foreground tracking-wider` |
-| Cell value | `text-xs font-semibold` or `text-xs font-bold` |
-| Status badge | shadcn default (`text-xs font-semibold`) + `rounded-full py-0` |
+| Page subtitle | `mt-0.5 text-sm text-muted-foreground` |
+| Section/card title | `text-sm font-black` |
+| Field label / metric label | `text-xs font-bold text-muted-foreground` |
+| Main value | `text-sm font-semibold` |
+| KPI value | `text-2xl font-black` |
+| Table header | `text-[11px] font-bold tracking-wider text-muted-foreground` |
+| Helper text | `text-xs text-muted-foreground` |
 | Primary button | `text-xs font-bold` |
 | Secondary button | `text-xs font-semibold` |
 
----
+Treat these as defaults, not rigid requirements. Preserve readable contrast and avoid shrinking important content simply to fit more on screen.
 
-## 11. Color Palette
+## 11. Avoid
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--primary` | `#415a77` (212 29% 36%) | Buttons, active states, focus rings, overdue text |
-| `--primary-foreground` | white | Text on primary backgrounds |
-| `--border` | `#d4dce6` (212 18% 86%) | Cards, tables, dividers, inputs |
-| `border-hover` (inline) | `#b8c6d8` (212 22% 78%) | Card border on hover, interactive states |
-| `text-muted-foreground` | `--muted-foreground` | Labels, captions, placeholder |
-| `text-foreground` | `--foreground` | Body text, values |
-| `bg-card` | `--card` | Card surfaces |
-| `bg-muted` | `--muted` | Hover backgrounds, subtle fills |
-| Green (success) | `bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800` | Success / paid / active states |
-| Amber (pending) | `bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800` | Warning / pending / processing states |
-| Red (danger) | `bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800` | Error / overdue / rejected states |
-| Blue (info) | `bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800` | Info / partial states |
-| Gray (muted) | `bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700` | Inactive / muted states |
-
----
-
-## 12. Drawer Content Layout
-
-```jsx
-<div className="px-6 py-5 space-y-6">
-  {/* Hero / Summary */}
-  <div className="text-center py-2">...</div>
-
-  <Separator />
-
-  {/* Info Grid */}
-  <div className="grid grid-cols-2 gap-x-6 gap-y-3">...</div>
-
-  <Separator />
-
-  {/* Section */}
-  <div>
-    <p className="text-xs font-bold text-muted-foreground tracking-wide mb-3">Section title</p>
-    ...
-  </div>
-</div>
-```
-
-Footer:
-
-```jsx
-<div className="shrink-0 px-6 py-4 border-t border-border flex items-center justify-between">
-  <Button variant="outline" size="sm" onClick={onClose}>إغلاق</Button>
-  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">Action</Button>
-</div>
-```
-
----
-
-## 13. Interactive States
-
-| Element | Style |
-|---------|-------|
-| Primary button | `bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]` |
-| Outline button | `border border-border hover:bg-muted active:scale-[0.98]` |
-| Table row | `hover:bg-muted/40 transition-colors cursor-pointer` |
-| Active filter tab | `bg-card border border-border shadow-sm` |
-| Card hover | `hover:border-[#b8c6d8] transition-colors` |
-
----
-
-## 14. Disabled
-
-```jsx
-<Button disabled className="opacity-50 cursor-not-allowed">حفظ</Button>
-```
-
----
-
-## 15. What NOT to do
-
-- ❌ No `lucide-react` or any icon library
-- ❌ No SVGs or emoji as icons
-- ❌ No `image` or `avatar` elements
-- ❌ No color gradients on backgrounds
-- ❌ No raw `div` when a shadcn component exists (`Card`, `Button`, `Input`, `Badge`, etc.)
-- ❌ No `animate-pulse` on non-Skeleton elements
+- Icons, SVGs, or emoji used as icons.
+- Avatars or decorative images where the page does not need them.
+- Gradient backgrounds or decorative visual effects that do not serve hierarchy.
+- Overusing cards, nested cards, borders, shadows, badges, or accent colors.
+- Physical left/right spacing or alignment utilities in RTL layouts.
+- Clickable non-semantic elements, unlabeled controls, icon-only actions, or placeholder-only form labels.
+- Bespoke dropdowns or modal behavior when an accessible shared component already exists.
+- Hiding errors, swallowing request failures, or allowing repeated submissions while saving.
+- Dense layouts that overflow on mobile or break under longer Arabic text.
