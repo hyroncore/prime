@@ -18,7 +18,7 @@
 | **Rounded corners** | shadcn defaults: `rounded-xl` for cards, `rounded-lg` for buttons/inputs, `rounded-full` for badges. |
 | **#415a77 accent** | Primary accent for CTAs, active nav, selection highlights, focus rings (`ring-primary/40`). |
 | **Monochrome text** | Hierarchy via weight (`font-semibold`, `font-bold`, `font-black`) and contrast (`text-muted-foreground`, `text-foreground`). |
-| **RTL Arabic** | Every page root is `<div dir="rtl">`. Use `text-right` (not `text-start`), `mr-*` (not `me-*`). |
+| **RTL Arabic** | Set `dir="rtl"` at the page root. Prefer logical utilities (`text-start`, `ms-*`/`me-*`, `ps-*`/`pe-*`, `start-*`/`end-*`) over physical left/right utilities so layout remains direction-safe. |
 
 ---
 
@@ -146,7 +146,7 @@ if (loading) return (
 
 function SortIndicator({ direction }) {
   if (!direction) return null;
-  return <span className="text-[10px] font-bold mr-1">{direction === 'asc' ? '↑' : '↓'}</span>;
+  return <span className="text-[10px] font-bold ms-1">{direction === 'asc' ? '↑' : '↓'}</span>;
 }
 ```
 
@@ -216,10 +216,10 @@ function SortIndicator({ direction }) {
     className="text-xs font-semibold text-muted-foreground hover:bg-muted px-3 py-1.5 rounded-lg transition-colors"
   >تصفية</button>
   {showFilter && (
-    <div className="absolute top-full left-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-md z-10 py-1">
+    <div className="absolute top-full start-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-md z-10 py-1">
       {options.map((opt) => (
         <button key={opt.key} onClick={() => { setFilter(opt.key); setShowFilter(false); }}
-          className={`w-full text-right px-3 py-1.5 text-xs transition-colors ${
+          className={`w-full text-start px-3 py-1.5 text-xs transition-colors ${
             activeFilter === opt.key ? 'bg-muted font-bold text-primary' : 'hover:bg-muted/50'
           }`}
         >{opt.label}</button>
@@ -228,7 +228,7 @@ function SortIndicator({ direction }) {
         <>
           <div className="border-t border-border my-1" />
           <button onClick={() => { setFilter(null); setShowFilter(false); }}
-            className="w-full text-right px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+            className="w-full text-start px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >إظهار الكل</button>
         </>
       )}
@@ -345,11 +345,51 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/s
 
 | Element | Component | Notes |
 |---------|-----------|-------|
-| Text input | `<Input>` | shadcn default `rounded-lg` |
-| Select | `<select>` native | Style: `rounded-lg border border-input h-9 px-3 text-sm bg-transparent` |
-| Toggle | Custom div | `bg-primary` when on, `bg-muted` when off |
+| Text input | `<Input>` | shadcn `rounded-lg`; use `h-11` for standalone forms and at least `h-9` in dense layouts |
+| Select | `<select>` native | `rounded-lg border border-input`; match the height of neighboring controls |
+| Toggle | `<Switch>` | Use the shared Switch component and provide an accessible label |
 | File input | Native `<input type="file">` | Standard border styling |
-| Date | `<input type="date">` | Match Input border classes |
+| Date | `<input type="date">` | Match Input border and height classes |
+
+### 9.1 Standalone Create/Edit Pages
+
+Use the `/users/new` page as the reference pattern for focused account-creation forms:
+
+- Put `dir="rtl"` on the page root and constrain the content to a single column (`max-w-[520px]`); do not add a card, decorative panel, or page-level shadow.
+- Start with a text-only back link, then a page title and a short subtitle. Keep the page hierarchy and spacing generous but compact (`space-y-6` between major groups).
+- Place each field label above its control. Use full-width, minimum 44px (`h-11`) inputs, switches, and action buttons, with the standard theme tokens and visible `focus-visible` rings.
+- Keep labels, hints, validation messages, and action copy in one page-specific constants object so UI text can be translated consistently.
+- Prefer the logical utilities from the RTL rule above. For mixed-direction values such as usernames and passwords, set `dir="ltr"` on the input itself while retaining the RTL page layout.
+- Choose controls that expose meaningful choices directly. For a small set of roles with descriptions, use a vertical radio group; for a binary account state, use a labeled switch with helper text. Avoid replacing these with generic dropdowns or unlabeled toggles.
+- Validate on blur and submit. After a field has an error, revalidate it on change. Associate errors and hints with their controls using `aria-invalid` and `aria-describedby`, announce errors with `role="alert"`, and focus the first invalid field after an unsuccessful submit.
+- Keep one filled primary action and a ghost cancel action. In RTL, put the primary action first in DOM order so it appears on the right; stack both as full-width buttons below 480px. Disable repeat submission while saving and expose the busy state to assistive technology.
+- On success, show the standard toast and navigate to the relevant list. Surface server-side field errors beside the matching field instead of replacing them with a generic success-shaped fallback.
+
+```jsx
+<div dir="rtl" className="mx-auto max-w-[520px] space-y-6">
+  <header className="space-y-3">
+    <Link to="/users" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      العودة للمستخدمين
+    </Link>
+    <div>
+      <h1 className="text-2xl font-black tracking-tight">إضافة مستخدم جديد</h1>
+      <p className="mt-0.5 text-sm text-muted-foreground">إنشاء حساب دخول جديد مع صلاحية دور محدد</p>
+    </div>
+  </header>
+
+  <form className="space-y-7">
+    {/* Each field uses a label above its full-width control, with hint/error text below. */}
+    <div className="flex flex-col gap-3 pt-1 min-[480px]:flex-row">
+      <Button type="submit" className="h-11 w-full bg-primary text-primary-foreground min-[480px]:w-auto">
+        حفظ المستخدم
+      </Button>
+      <Button type="button" variant="ghost" className="h-11 w-full min-[480px]:w-auto">
+        إلغاء
+      </Button>
+    </div>
+  </form>
+</div>
+```
 
 ---
 
