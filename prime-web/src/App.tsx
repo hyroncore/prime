@@ -23,6 +23,7 @@ const RequisitionPrintPage = lazy(() => import('@/pages/RequisitionPrintPage').t
 const ClientsPage = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })))
 const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m.UsersPage })))
 const UserFormPage = lazy(() => import('@/pages/UserFormPage').then(m => ({ default: m.UserFormPage })))
+const NewUserPage = lazy(() => import('@/pages/users/NewUserPage').then(m => ({ default: m.NewUserPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const WorkflowPage = lazy(() => import('@/pages/WorkflowPage').then(m => ({ default: m.WorkflowPage })))
@@ -189,7 +190,7 @@ export default function App() {
                   path="/users/new"
                   element={
                     <RequireAdmin>
-                      <Suspense fallback={<PageSkeleton />}> <UserFormPage /> </Suspense>
+                      <Suspense fallback={<PageSkeleton />}> <NewUserPage /> </Suspense>
                     </RequireAdmin>
                   }
                 />

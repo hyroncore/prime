@@ -381,6 +381,7 @@ export interface CreateUserRequest {
   displayName: string
   role: UserRole
   initialPassword: string
+  isActive?: boolean
 }
 
 export interface UpdateUserRequest {

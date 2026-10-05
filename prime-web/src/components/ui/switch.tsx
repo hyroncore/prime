@@ -7,12 +7,17 @@ interface SwitchProps {
   checked?: boolean
   defaultChecked?: boolean
   onCheckedChange?: (checked: boolean) => void
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
   disabled?: boolean
   size?: "sm" | "default" | "lg"
   id?: string
   name?: string
   children?: React.ReactNode
   className?: string
+  "aria-label"?: string
+  "aria-labelledby"?: string
+  "aria-describedby"?: string
+  "aria-invalid"?: boolean
 }
 
 const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(

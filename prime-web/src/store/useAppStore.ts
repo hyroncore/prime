@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api } from '@/lib/api'
 import { SECTORS } from '@/lib/format'
+import type { UserFormValues } from '@/components/users/userSchema'
 import type {
   AdminDashboardStatsDto,
   ClientDto,
@@ -12,7 +13,9 @@ import type {
   RequisitionDto,
   RequisitionStatsDto,
   SectorDto,
+  UserRole,
   UserDashboardStatsDto,
+  UserDto,
 } from '@/lib/types'
 
 interface RequisitionFilters {
@@ -84,6 +87,7 @@ interface AppState {
   uploadAttachment: (id: number, file: File) => Promise<void>
   deleteAttachment: (id: number) => Promise<void>
   createClient: (body: Parameters<typeof api.clients.create>[0]) => Promise<ClientDto>
+  createUser: (data: UserFormValues) => Promise<UserDto>
   updateClient: (id: number, body: Parameters<typeof api.clients.update>[1]) => Promise<void>
   deleteClient: (id: number) => Promise<void>
   createPlant: (body: Parameters<typeof api.plants.create>[0]) => Promise<PlantDetailDto>
@@ -346,6 +350,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const client = await api.clients.create(body)
     await Promise.all([get().fetchClients(), get().fetchPlants()])
     return client
+  },
+
+  createUser: async (data) => {
+    const roleMap: Record<UserFormValues['role'], UserRole> = {
+      standard: 'User',
+      admin: 'Manager',
+      system_manager: 'Admin',
+    }
+    return api.users.create({
+      username: data.username,
+      displayName: data.username,
+      role: roleMap[data.role],
+      initialPassword: data.password,
+      isActive: data.active,
+    })
   },
 
   updateClient: async (id, body) => {

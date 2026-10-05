@@ -125,6 +125,19 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Create_InactiveUser_PreservesInactiveStatus()
+    {
+        SetPrincipal(1);
+
+        var result = await _controller.Create(
+            new CreateUserRequest("inactive", "مستخدم غير نشط", UserRoles.User, "Passw0rd!", IsActive: false));
+
+        var created = OkValue(result);
+        Assert.False(created.IsActive);
+        Assert.False(await _db.Users.Where(u => u.Username == "inactive").Select(u => u.IsActive).SingleAsync());
+    }
+
+    [Fact]
     public async Task Create_DuplicateUsername_Returns409()
     {
         await CreateUserAsync("dup");

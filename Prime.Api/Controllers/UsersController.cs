@@ -62,6 +62,7 @@ public class UsersController : ControllerBase
             Username = username,
             DisplayName = displayName,
             Role = role,
+            IsActive = request.IsActive,
             PasswordHash = _hasher.HashPassword(new AppUser(), request.InitialPassword)
         };
         _db.Users.Add(user);
