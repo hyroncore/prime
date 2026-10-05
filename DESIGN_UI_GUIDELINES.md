@@ -16,6 +16,7 @@
 | **Shadcn UI** | Use shadcn primitives: `Card`, `Button`, `Input`, `Badge`, `Separator`, `Table`, `Sheet`, `AlertDialog`, `Skeleton`, `Dialog`. |
 | **Subtle shadows** | Use Tailwind shadow classes: `shadow-sm` on cards, `shadow-md` on elevated elements. |
 | **Rounded corners** | shadcn defaults: `rounded-xl` for cards, `rounded-lg` for buttons/inputs, `rounded-full` for badges. |
+| **Clean and minimal** | Prefer clear hierarchy, generous spacing, and concise content. Show only the information and actions needed for the task; avoid decorative panels, duplicate labels, and unnecessary controls. |
 | **#415a77 accent** | Primary accent for CTAs, active nav, selection highlights, focus rings (`ring-primary/40`). |
 | **Monochrome text** | Hierarchy via weight (`font-semibold`, `font-bold`, `font-black`) and contrast (`text-muted-foreground`, `text-foreground`). |
 | **RTL Arabic** | Set `dir="rtl"` at the page root. Prefer logical utilities (`text-start`, `ms-*`/`me-*`, `ps-*`/`pe-*`, `start-*`/`end-*`) over physical left/right utilities so layout remains direction-safe. |
@@ -87,6 +88,44 @@ if (loading) return (
     </Card>
   </div>
 );
+```
+
+### 2.4 Clean Account and Settings Cards
+
+Use the Account page as the reference for compact profile, security, and preference sections:
+
+- Keep the page shell simple and readable (`max-w-3xl`, `space-y-6`) with one clear title and a short subtitle.
+- Group related information and actions into separate shadcn `<Card>` sections. Give each card a concise `<CardTitle>` and keep its contents in `<CardContent>`; do not add nested cards or decorative containers.
+- Present identity and account details as a compact heading/role badge followed by a responsive details grid. Use small muted labels above clear values and a subtle divider between the heading and details.
+- Present each setting or security action as one row: explain the item briefly, then place its control or action beside it. On narrow screens, allow the row to wrap or stack without clipping.
+- Keep destructive or session-level actions, such as signing out, outside the informational cards in a restrained footer row. Avoid adding unrelated profile fields or actions just to fill space.
+- Preserve the shared theme tokens, dark-mode support, and visible focus states. Cards should organize useful content, not add decoration; use the standard card treatment without extra shadows or borders unless the component pattern calls for them.
+
+```jsx
+<div dir="rtl" className="mx-auto max-w-3xl space-y-6">
+  <header>
+    <h1 className="text-2xl font-black tracking-tight">الحساب</h1>
+    <p className="mt-0.5 text-sm text-muted-foreground">عرض معلومات حسابك وإدارة كلمة المرور</p>
+  </header>
+
+  <Card>
+    <CardHeader className="pb-4">
+      <CardTitle className="text-sm font-black">معلومات الحساب</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-bold">اسم المستخدم</h2>
+        <Badge variant="outline" className="rounded-full py-0">الدور</Badge>
+      </div>
+      <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-muted-foreground">حالة الحساب</p>
+          <p className="text-sm font-semibold">نشط</p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</div>
 ```
 
 ---
