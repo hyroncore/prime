@@ -46,6 +46,7 @@ export interface RequisitionDto {
   receivedAt: string
   auditLogs?: AuditLogDto[]
   attachments?: AttachmentDto[]
+  createdById?: number | null
 }
 
 export interface PlantDto {

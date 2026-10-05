@@ -85,6 +85,8 @@ export const AUDIT_ACTION_META: Record<string, { label: string; tone: string }> 
   Created: { label: 'إنشاء الطلب', tone: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
   StatusChanged: { label: 'تغيير الحالة', tone: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
   Updated: { label: 'تعديل البيانات', tone: 'bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800' },
+  SubmittedForSignOff: { label: 'إرسال الطلب لاعتماد المدير', tone: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  ManagerInputRequested: { label: 'طلب مراجعة من المدير', tone: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
 }
 
 export function formatDate(iso: string): string {

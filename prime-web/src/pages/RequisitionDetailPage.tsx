@@ -38,6 +38,7 @@ export function RequisitionDetailPage() {
   const updateRequisitionStatus = useAppStore((s) => s.updateRequisitionStatus)
   const deleteRequisition = useAppStore((s) => s.deleteRequisition)
   const role = useAuthStore((s) => s.user?.role)
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const isAdmin = role === 'Admin'
 
   const { toast } = useToast()
@@ -168,6 +169,44 @@ export function RequisitionDetailPage() {
     }
   }
 
+  const handleSignOffRequest = async () => {
+    if (!notes.trim()) {
+      setStatusError('يرجى كتابة ملاحظات قبل إرسال الطلب إلى المدير')
+      return
+    }
+    setBusy(true)
+    setStatusError(null)
+    try {
+      await api.requisitions.requestSignOff(requisitionId, notes.trim())
+      setNotes('')
+      await load()
+      successToast('تم إرسال الطلب إلى المدير للاعتماد')
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : 'تعذر إرسال الطلب إلى المدير')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleManagerInputRequest = async () => {
+    if (!notes.trim()) {
+      setStatusError('يرجى كتابة سبب طلب المراجعة')
+      return
+    }
+    setBusy(true)
+    setStatusError(null)
+    try {
+      await api.requisitions.requestManagerInput(requisitionId, notes.trim())
+      setNotes('')
+      await load()
+      successToast('تم إرسال طلب المراجعة إلى المدير')
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : 'تعذر إرسال طلب المراجعة')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleDelete = async () => {
     setDeleting(true)
     setDeleteError(null)
@@ -248,6 +287,10 @@ export function RequisitionDetailPage() {
     // Standard user can only transition NEW -> REVIEW
     return detail.status === 'NEW' && target === 'REVIEW'
   })
+  const canRequestManagerAction =
+    role === 'User' &&
+    detail.status === 'PROCESSING' &&
+    detail.createdById === currentUserId
 
   return (
     <div dir="rtl" className="mx-auto w-full max-w-screen-xl space-y-6">
@@ -447,19 +490,27 @@ export function RequisitionDetailPage() {
         </CardContent>
       </Card>
 
-      {allowed.length > 0 && (
+      {(allowed.length > 0 || canRequestManagerAction) && (
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-sm font-bold">تغيير الحالة</CardTitle>
+            <CardTitle className="text-sm font-bold">
+              {canRequestManagerAction ? 'إجراء الطلب' : 'تغيير الحالة'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 border-t pt-5">
             <div className="space-y-2">
-              <Label htmlFor="status-change-notes">وصف التغيير</Label>
+              <Label htmlFor="status-change-notes">
+                {canRequestManagerAction ? 'ملاحظات للمدير' : 'وصف التغيير'}
+              </Label>
               <Textarea
                 id="status-change-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="اكتب سبب تغيير الحالة"
+                placeholder={
+                  canRequestManagerAction
+                    ? 'اكتب ملاحظاتك أو سبب طلب مراجعة المدير'
+                    : 'اكتب سبب تغيير الحالة'
+                }
                 disabled={busy}
                 aria-invalid={Boolean(statusError)}
                 aria-describedby={statusError ? 'status-change-error' : undefined}
@@ -472,6 +523,27 @@ export function RequisitionDetailPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {canRequestManagerAction && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSignOffRequest()}
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    {busy ? 'جارٍ الإرسال...' : 'إرسال للمدير للاعتماد'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleManagerInputRequest()}
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    {busy ? 'جارٍ الإرسال...' : 'طلب مراجعة من المدير'}
+                  </Button>
+                </>
+              )}
               {allowed.map((target) => (
                 <Button
                   key={target}

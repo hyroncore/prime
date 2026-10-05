@@ -38,7 +38,8 @@ public record RequisitionDto(
     DateTime CreatedAt,
     DateTime ReceivedAt,
     List<AuditLogDto>? AuditLogs = null,
-    List<AttachmentDto>? Attachments = null);
+    List<AttachmentDto>? Attachments = null,
+    int? CreatedById = null);
 
 public record RequisitionStatsDto(
     int TotalCount,

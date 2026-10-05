@@ -8,6 +8,7 @@ using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
+using Prime.Api.Services;
 using System.Security.Claims;
 
 namespace Prime.Api.Tests;
@@ -192,6 +193,127 @@ public class RequisitionsControllerTests : IDisposable
         var created = Assert.IsType<CreatedAtActionResult>(result.Result);
         var dto = Assert.IsType<RequisitionDto>(created.Value);
         Assert.Equal(received, dto.ReceivedAt);
+    }
+
+    [Fact]
+    public async Task RequestManagerInput_RequiresNotesAndKeepsRequisitionProcessing()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        var requisition = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0001",
+            ExternalRef = "REF-1",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "طلب اختبار",
+            DueDate = DateTime.UtcNow.AddDays(7),
+            Status = nameof(RequisitionStatus.PROCESSING),
+            CreatedById = 1,
+        };
+        _db.PurchaseRequisitions.Add(requisition);
+        await _db.SaveChangesAsync();
+
+        var invalid = await _controller.RequestManagerInput(
+            requisition.Id,
+            new RequestManagerInputRequest("  "));
+        Assert.Equal("Request notes are required.", ErrorMessage(invalid));
+
+        var result = await _controller.RequestManagerInput(
+            requisition.Id,
+            new RequestManagerInputRequest("  أحتاج مراجعة نقطة السعر  "));
+
+        var dto = Dto(result);
+        Assert.Equal(nameof(RequisitionStatus.PROCESSING), dto.Status);
+        var audit = Assert.Single(await _db.RequisitionAuditLogs.ToListAsync());
+        Assert.Equal("ManagerInputRequested", audit.Action);
+        Assert.Equal(nameof(RequisitionStatus.PROCESSING), audit.StatusFrom);
+        Assert.Equal(nameof(RequisitionStatus.PROCESSING), audit.StatusTo);
+        Assert.Equal("أحتاج مراجعة نقطة السعر", audit.Notes);
+
+        var notification = Assert.Single(await _db.Notifications.ToListAsync());
+        Assert.Equal(NotificationTypes.ManagerInputRequested, notification.Type);
+        Assert.Equal(audit.Notes, notification.Message);
+        Assert.Equal(requisition.Id, notification.RequisitionId);
+    }
+
+    [Fact]
+    public async Task RequestManagerInput_RequiresRequisitionOwnership()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        _db.Users.Add(new AppUser
+        {
+            Id = 2,
+            Username = "otheruser",
+            DisplayName = "Other User",
+            Role = "User",
+            PasswordHash = "dummy",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
+        var requisition = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0001",
+            ExternalRef = "REF-1",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "طلب اختبار",
+            DueDate = DateTime.UtcNow.AddDays(7),
+            Status = nameof(RequisitionStatus.PROCESSING),
+            CreatedById = 2,
+        };
+        _db.PurchaseRequisitions.Add(requisition);
+        await _db.SaveChangesAsync();
+
+        var result = await _controller.RequestManagerInput(
+            requisition.Id,
+            new RequestManagerInputRequest("يرجى المراجعة"));
+
+        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Empty(await _db.RequisitionAuditLogs.ToListAsync());
+        Assert.Empty(await _db.Notifications.ToListAsync());
+    }
+
+    [Fact]
+    public async Task RequestSubmit_RequiresNotesAndSubmitsForSignOff()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        var requisition = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0001",
+            ExternalRef = "REF-1",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "طلب اختبار",
+            DueDate = DateTime.UtcNow.AddDays(7),
+            Status = nameof(RequisitionStatus.PROCESSING),
+            CreatedById = 1,
+        };
+        _db.PurchaseRequisitions.Add(requisition);
+        await _db.SaveChangesAsync();
+
+        var invalid = await _controller.RequestSubmit(requisition.Id, new RequestSubmitRequest(" "));
+        Assert.Equal("Submission notes are required.", ErrorMessage(invalid));
+
+        var result = await _controller.RequestSubmit(
+            requisition.Id,
+            new RequestSubmitRequest("تمت مراجعة الطلب"));
+
+        var dto = Dto(result);
+        Assert.Equal(nameof(RequisitionStatus.SUBMITTED), dto.Status);
+        var audit = Assert.Single(await _db.RequisitionAuditLogs.ToListAsync());
+        Assert.Equal("SubmittedForSignOff", audit.Action);
+        Assert.Equal("تمت مراجعة الطلب", audit.Notes);
+    }
+
+    [Fact]
+    public void StatusService_InitializesAndAllowsDeclinedRequisitionsToArchive()
+    {
+        var transitions = RequisitionStatusService.GetValidTransitions(
+            RequisitionStatus.DECLINED,
+            "System",
+            new[] { "system:archive" });
+
+        Assert.Contains(RequisitionStatus.ARCHIVE, transitions);
     }
 
     [Fact]

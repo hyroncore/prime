@@ -186,6 +186,16 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, notes }),
       }),
+    requestSignOff: (id: number, notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ notes }),
+      }),
+    requestManagerInput: (id: number, notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/request-manager-input`, {
+        method: 'POST',
+        body: JSON.stringify({ notes }),
+      }),
     update: (id: number, body: UpdateRequisitionRequest) =>
       request<RequisitionDto>(`/requisitions/${id}`, {
         method: 'PUT',

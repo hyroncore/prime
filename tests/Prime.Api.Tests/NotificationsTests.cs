@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Prime.Api.Controllers;
@@ -6,6 +7,7 @@ using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
 using Prime.Api.Services;
+using System.Security.Claims;
 
 namespace Prime.Api.Tests;
 
@@ -166,5 +168,87 @@ public class NotificationsTests : IDisposable
         var list = List(await _controller.List(limit: 50, unreadOnly: false));
         Assert.Equal(0, list.UnreadCount);
         Assert.Empty(list.Items.Where(n => n.ReadAt == null));
+    }
+
+    [Fact]
+    public async Task ManagerInputRequests_AreOnlyVisibleAndReadableByManagers()
+    {
+        var manager = new AppUser
+        {
+            Id = 3,
+            Username = "manager",
+            DisplayName = "Manager",
+            Role = UserRoles.Manager,
+            PasswordHash = "dummy",
+            IsActive = true,
+            CreatedAt = Now,
+        };
+        var requester = new AppUser
+        {
+            Id = 4,
+            Username = "requester",
+            DisplayName = "Requester",
+            Role = UserRoles.User,
+            PasswordHash = "dummy",
+            IsActive = true,
+            ManagerId = manager.Id,
+            CreatedAt = Now,
+        };
+        _db.Users.AddRange(manager, requester);
+        var requisition = await SeedOpenRequisitionAsync();
+        requisition.CreatedById = requester.Id;
+        _db.Notifications.AddRange(
+            new Notification
+            {
+                RequisitionId = requisition.Id,
+                Type = NotificationTypes.ManagerInputRequested,
+                Title = "طلب مراجعة المدير",
+                Message = "يرجى مراجعة السعر",
+                DedupKey = "manager-input:1:event",
+                CreatedAt = Now,
+            },
+            new Notification
+            {
+                Type = NotificationTypes.Overdue,
+                Title = "طلب متأخر",
+                Message = "تجاوز موعد الاستحقاق",
+                DedupKey = "overdue:2:event",
+                CreatedAt = Now.AddMinutes(-1),
+            });
+        await _db.SaveChangesAsync();
+
+        SetRole(UserRoles.User, requester.Id);
+        var userList = List(await _controller.List());
+        Assert.Equal(1, userList.UnreadCount);
+        Assert.DoesNotContain(userList.Items, n => n.Type == NotificationTypes.ManagerInputRequested);
+
+        var managerRequest = await _db.Notifications.SingleAsync(
+            n => n.Type == NotificationTypes.ManagerInputRequested);
+        Assert.IsType<ForbidResult>(await _controller.MarkRead(managerRequest.Id));
+        await _controller.MarkAllRead();
+        Assert.Null(managerRequest.ReadAt);
+
+        SetRole(UserRoles.Manager, manager.Id);
+        var managerList = List(await _controller.List());
+        Assert.Equal(1, managerList.UnreadCount);
+        Assert.Contains(managerList.Items, n => n.Type == NotificationTypes.ManagerInputRequested);
+        Assert.IsType<NoContentResult>(await _controller.MarkRead(managerRequest.Id));
+    }
+
+    private void SetRole(string role, int? userId = null)
+    {
+        var claims = new List<Claim> { new(ClaimTypes.Role, role) };
+        if (userId.HasValue)
+        {
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString()));
+        }
+
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")),
+            },
+        };
     }
 }

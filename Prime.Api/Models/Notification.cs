@@ -28,4 +28,5 @@ public static class NotificationTypes
     public const string DueSoon = "DueSoon";
     public const string Overdue = "Overdue";
     public const string SubmittedFollowUp = "SubmittedFollowUp";
+    public const string ManagerInputRequested = "ManagerInputRequested";
 }

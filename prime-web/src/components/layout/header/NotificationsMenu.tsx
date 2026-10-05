@@ -10,6 +10,7 @@ import { HEADER_TEXT } from './constants'
 interface HeaderNotification {
   id: number
   title: string
+  message: string
   createdAt: string
   read: boolean
   href?: string
@@ -24,6 +25,7 @@ function toHeaderNotification(notification: NotificationDto): HeaderNotification
   return {
     id: notification.id,
     title: notification.title,
+    message: notification.message,
     createdAt: notification.createdAt,
     read: notification.readAt !== null,
     ...(notification.requisitionId == null
@@ -117,6 +119,11 @@ export function NotificationsMenu({ open, onOpenChange }: NotificationsMenuProps
                         <span className="block truncate text-sm font-medium">
                           {notification.title}
                         </span>
+                        {notification.message && (
+                          <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+                            {notification.message}
+                          </span>
+                        )}
                         <time
                           dateTime={notification.createdAt}
                           className="mt-1 block text-xs text-muted-foreground"

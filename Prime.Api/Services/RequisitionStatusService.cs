@@ -34,7 +34,6 @@ public static class RequisitionStatusService
         {
             new TransitionRule(RequisitionStatus.PROCESSING, "req:review_action", "Manager"),
         },
-        [RequisitionStatus.DECLINED] = Array.Empty<TransitionRule>(),
         [RequisitionStatus.WON] = new[]
         {
             new TransitionRule(RequisitionStatus.ARCHIVE, "system:archive", "System"),

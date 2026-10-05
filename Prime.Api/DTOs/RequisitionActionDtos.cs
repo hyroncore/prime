@@ -6,6 +6,8 @@ public record ReviewActionRequest(string Action, string Notes); // Action: "appr
 
 public record RequestSubmitRequest(string Notes);
 
+public record RequestManagerInputRequest(string Notes);
+
 public record InternalActionRequest(string Action, string Notes); // "approve" | "revise"
 
 public record RequestRevisionRequest(string Notes); // Required notes

@@ -307,6 +307,9 @@ public class RequisitionsController : ControllerBase
         if (requisition.CreatedById != GetCurrentUserId())
             return Forbid();
 
+        if (string.IsNullOrWhiteSpace(request.Notes))
+            return BadRequest(new { message = "Submission notes are required." });
+
         requisition.Status = nameof(RequisitionStatus.SUBMITTED);
         requisition.SubmittedAt = DateTime.UtcNow;
         requisition.SubmittedById = GetCurrentUserId();
@@ -317,10 +320,57 @@ public class RequisitionsController : ControllerBase
             Action = "SubmittedForSignOff",
             StatusFrom = nameof(RequisitionStatus.PROCESSING),
             StatusTo = nameof(RequisitionStatus.SUBMITTED),
-            Notes = request.Notes
+            Notes = request.Notes.Trim()
         });
         await _db.SaveChangesAsync();
 
+        return Ok(ToDto(requisition));
+    }
+
+    [HttpPost("{id:int}/request-manager-input")]
+    [Authorize(Policy = "req:request_submit")]
+    public async Task<ActionResult<RequisitionDto>> RequestManagerInput(
+        int id,
+        [FromBody] RequestManagerInputRequest request)
+    {
+        var requisition = await _db.PurchaseRequisitions
+            .Include(r => r.Plant)
+                .ThenInclude(p => p!.Client)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (requisition is null) return NotFound();
+
+        if (requisition.Status != nameof(RequisitionStatus.PROCESSING))
+            return BadRequest("Only PROCESSING requisitions can request manager input");
+
+        if (requisition.CreatedById != GetCurrentUserId())
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(request.Notes))
+            return BadRequest(new { message = "Request notes are required." });
+
+        var now = DateTime.UtcNow;
+        var notes = request.Notes.Trim();
+        _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
+        {
+            RequisitionId = requisition.Id,
+            Action = "ManagerInputRequested",
+            StatusFrom = requisition.Status,
+            StatusTo = requisition.Status,
+            Notes = notes,
+            CreatedAt = now
+        });
+
+        _db.Notifications.Add(new Notification
+        {
+            RequisitionId = requisition.Id,
+            Type = NotificationTypes.ManagerInputRequested,
+            Title = $"طلب مراجعة المدير: {requisition.Identifier}",
+            Message = notes,
+            DedupKey = $"manager-input:{requisition.Id}:{Guid.NewGuid():N}",
+            CreatedAt = now
+        });
+
+        await _db.SaveChangesAsync();
         return Ok(ToDto(requisition));
     }
 
@@ -615,5 +665,6 @@ public class RequisitionsController : ControllerBase
         r.Status,
         r.ClientNotes,
         r.CreatedAt,
-        r.ReceivedAt);
+        r.ReceivedAt,
+        CreatedById: r.CreatedById);
 }
