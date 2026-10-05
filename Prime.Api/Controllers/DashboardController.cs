@@ -307,27 +307,35 @@ public class DashboardController : ControllerBase
         try
         {
             var userId = GetCurrentUserId();
+            var isAdmin = User.IsInRole(UserRoles.Admin);
 
-            // Actionable statuses for manager dashboard
             var managerActionableStatuses = new[] { "REVIEW", "SUBMITTED" };
-
-            // Materialize all requisitions with includes
-            var allRequisitions = await _db.PurchaseRequisitions
-                .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client)
+            var teamUsers = await _db.Users
+                .Where(u => u.IsActive
+                    && u.Role == UserRoles.User
+                    && (isAdmin || u.ManagerId == userId))
                 .ToListAsync();
+            var teamUserIds = teamUsers.Select(u => u.Id).ToList();
 
-            // Filter for actionable requisitions across the system
-            var requisitions = allRequisitions
+            IQueryable<PurchaseRequisition> requisitionsQuery = _db.PurchaseRequisitions
+                .Include(r => r.Plant)!
+                    .ThenInclude(p => p!.Client);
+            if (!isAdmin)
+            {
+                requisitionsQuery = requisitionsQuery
+                    .Where(r => r.CreatedById.HasValue && teamUserIds.Contains(r.CreatedById.Value));
+            }
+            var teamRequisitions = await requisitionsQuery.ToListAsync();
+            var requisitions = teamRequisitions
                 .Where(r => managerActionableStatuses.Contains(r.Status))
                 .ToList();
 
-            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING", "SUBMITTED" };
+            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
             var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
             var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
-            var teamVolume = allRequisitions.Count;
-            var wonCount = allRequisitions.Count(r => r.Status == "WON");
-            var lostCount = allRequisitions.Count(r => r.Status == "LOST");
+            var teamVolume = teamRequisitions.Count;
+            var wonCount = teamRequisitions.Count(r => r.Status == "WON");
+            var lostCount = teamRequisitions.Count(r => r.Status == "LOST");
             var decided = wonCount + lostCount;
             var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
 
@@ -352,18 +360,9 @@ public class DashboardController : ControllerBase
                 .OrderBy(r => r.SubmittedAt)
                 .ToList();
 
-            // Active team members (standard users, or non-admin users)
-            var standardUsers = await _db.Users
-                .Where(u => u.IsActive && u.Role == UserRoles.User)
-                .ToListAsync();
-
-            var teamUsers = standardUsers.Count > 0
-                ? standardUsers
-                : await _db.Users.Where(u => u.IsActive && u.Role != UserRoles.Admin).ToListAsync();
-
             var teamPerformance = teamUsers
                 .Select(u => {
-                    var userReqs = allRequisitions
+                    var userReqs = teamRequisitions
                         .Where(r => r.CreatedById == u.Id)
                         .ToList();
                     var userOpen = userReqs.Count(r => openStatuses.Contains(r.Status));

@@ -122,14 +122,14 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectPendingReviewCount()
     {
-        // 3 REVIEW across all users (req1, req3, req5) - no assignment required
+        // Only REVIEW requests from the manager's assigned subordinates are included.
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(3, dto.PendingReview);
+        Assert.Equal(2, dto.PendingReview);
         Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0001");
         Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0003");
-        Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
+        Assert.DoesNotContain(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
     }
 
     [Fact]
@@ -146,11 +146,11 @@ public class DashboardControllerTests : IDisposable
     [Fact]
     public async Task GetManagerStats_ReturnsCorrectTeamVolume()
     {
-        // TeamVolume = all 7 requisitions seeded
+        // The manager's two assigned subordinates own 6 requisitions.
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        Assert.Equal(7, dto.TeamVolume);
+        Assert.Equal(6, dto.TeamVolume);
     }
 
     [Fact]
@@ -166,14 +166,13 @@ public class DashboardControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetManagerStats_IncludesAllUsersRequisitionsWithoutAssignment()
+    public async Task GetManagerStats_ExcludesRequisitionsFromUnassignedUsers()
     {
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        // req5 from user 4 appears in pendingReviews without needing ManagerId assignment
-        Assert.Contains(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
-        Assert.Equal(7, dto.TeamVolume);
+        Assert.DoesNotContain(dto.PendingReviews, r => r.Identifier == "TP-01-0005");
+        Assert.Equal(6, dto.TeamVolume);
     }
 
     [Fact]
@@ -182,19 +181,18 @@ public class DashboardControllerTests : IDisposable
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        // All 3 active standard users are included
-        Assert.Equal(3, dto.TeamPerformance.Count);
+        // Only the 2 active users assigned to this manager are included.
+        Assert.Equal(2, dto.TeamPerformance.Count);
 
         var sub1Perf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Subordinate 1");
         var sub2Perf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Subordinate 2");
-        var unrelatedPerf = dto.TeamPerformance.FirstOrDefault(p => p.DisplayName == "Unrelated User");
 
         Assert.NotNull(sub1Perf);
         Assert.NotNull(sub2Perf);
-        Assert.NotNull(unrelatedPerf);
+        Assert.DoesNotContain(dto.TeamPerformance, p => p.DisplayName == "Unrelated User");
 
-        // Sub1: 1 REVIEW (req1) + 1 SUBMITTED (req2) = 2 open, 1 WON, 0 LOST = 100% win rate
-        Assert.Equal(2, sub1Perf.OpenRequisitions);
+        // Open requests exclude separately reported submitted requests.
+        Assert.Equal(1, sub1Perf.OpenRequisitions);
         Assert.Equal(1, sub1Perf.SubmittedCount);
         Assert.Equal(1, sub1Perf.WonCount);
         Assert.Equal(100.0, sub1Perf.WinRate);
@@ -205,11 +203,6 @@ public class DashboardControllerTests : IDisposable
         Assert.Equal(0, sub2Perf.WonCount);
         Assert.Equal(0.0, sub2Perf.WinRate);
 
-        // Unrelated: 1 REVIEW (req5), 0 SUBMITTED, 0 WON, 0 LOST = 0% win rate
-        Assert.Equal(1, unrelatedPerf.OpenRequisitions);
-        Assert.Equal(0, unrelatedPerf.SubmittedCount);
-        Assert.Equal(0, unrelatedPerf.WonCount);
-        Assert.Equal(0.0, unrelatedPerf.WinRate);
     }
 
     [Fact]
@@ -258,7 +251,7 @@ public class DashboardControllerTests : IDisposable
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        // Total requisitions in system: 7
+        // Administrators retain the system-wide dashboard view.
         Assert.Equal(7, dto.TeamVolume);
         Assert.Equal(3, dto.PendingReview); // req1, req3, req5
         Assert.Equal(1, dto.PendingSignOff); // req2

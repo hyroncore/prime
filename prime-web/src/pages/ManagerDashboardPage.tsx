@@ -1,370 +1,401 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/StatusBadge'
-import { formatDateShort, getUrgencyMeta, STATUS_META } from '@/lib/format'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { formatDateShort, getUrgencyMeta } from '@/lib/format'
 import type { RequisitionStatus } from '@/lib/types'
-import { useAppStore } from '@/store/useAppStore'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/store/useAppStore'
 
-const FUNNEL_ORDER: RequisitionStatus[] = [
-  'NEW',
-  'REVIEW',
-  'PROCESSING',
-  'SUBMITTED',
-  'APPROVED',
-  'REVISE',
-  'WON',
-  'LOST',
-  'DECLINED',
-]
+const MAX_VISIBLE_REQUESTS = 5
+const numberFormatter = new Intl.NumberFormat('ar')
+
+type RequestRowProps = {
+  id: number
+  identifier: string
+  title: string
+  clientName: string
+  plantName: string
+  status: RequisitionStatus
+  date: string
+  dateLabel: string
+  urgent?: boolean
+  onOpen: (id: number) => void
+}
+
+function RequestRow({
+  id,
+  identifier,
+  title,
+  clientName,
+  plantName,
+  status,
+  date,
+  dateLabel,
+  urgent = false,
+  onOpen,
+}: RequestRowProps) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(id)}
+        aria-label={`فتح الطلب ${identifier}: ${title}`}
+        className="flex min-h-16 w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-4 py-3 text-start transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+      >
+        <span dir="ltr" className="w-28 shrink-0 font-mono text-sm font-bold text-primary">
+          {identifier}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{title}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {clientName} · {plantName}
+          </span>
+        </span>
+        <span className="shrink-0">
+          <StatusBadge status={status} />
+        </span>
+        <span className="ms-auto min-w-24 shrink-0 text-end">
+          <span className={`block text-sm font-bold tabular-nums ${urgent ? 'text-destructive' : ''}`}>
+            {date}
+          </span>
+          <span className={`mt-0.5 block text-xs ${urgent ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+            {dateLabel}
+          </span>
+        </span>
+      </button>
+    </li>
+  )
+}
+
+function DashboardSkeleton() {
+  return (
+    <main dir="rtl" className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48 rounded-lg" />
+          <Skeleton className="h-4 w-64 rounded-lg" />
+        </div>
+        <Skeleton className="h-11 w-36 rounded-lg" />
+      </header>
+      <section aria-label="ملخص طلبات الفريق" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="space-y-3 p-5 shadow-none">
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-8 w-16 rounded" />
+            <Skeleton className="h-3 w-28 rounded" />
+          </Card>
+        ))}
+      </section>
+      {Array.from({ length: 2 }).map((_, index) => (
+        <section key={index} className="space-y-3">
+          <Skeleton className="h-5 w-44 rounded" />
+          <Card className="space-y-3 p-4 shadow-none">
+            {Array.from({ length: 3 }).map((__, row) => (
+              <Skeleton key={row} className="h-14 w-full rounded-lg" />
+            ))}
+          </Card>
+        </section>
+      ))}
+      <section className="space-y-3">
+        <Skeleton className="h-5 w-32 rounded" />
+        <Card className="space-y-3 p-5 shadow-none">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-9 w-full rounded" />
+          ))}
+        </Card>
+      </section>
+    </main>
+  )
+}
 
 export function ManagerDashboardPage() {
   const navigate = useNavigate()
-  const setManagerStats = useAppStore((s) => s.setManagerStats)
-  const managerStats = useAppStore((s) => s.managerStats)
-  const loading = useAppStore((s) => s.loading)
-  const openDrawer = useAppStore((s) => s.openDrawer)
-  const setLoading = useAppStore((s) => s.setLoading)
-  const setError = useAppStore((s) => s.setError)
+  const managerStats = useAppStore((state) => state.managerStats)
+  const setManagerStats = useAppStore((state) => state.setManagerStats)
+  const openDrawer = useAppStore((state) => state.openDrawer)
+  const [loading, setLoading] = useState(!managerStats)
+  const [error, setError] = useState<string | null>(null)
+  const requestSequence = useRef(0)
+
+  const loadDashboard = useCallback(async () => {
+    const sequence = ++requestSequence.current
+    setLoading(true)
+    setError(null)
+    try {
+      const stats = await api.dashboard.managerStats()
+      if (sequence === requestSequence.current) setManagerStats(stats)
+    } catch (loadError) {
+      if (sequence === requestSequence.current) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'تعذر تحميل بيانات لوحة التحكم.',
+        )
+      }
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false)
+    }
+  }, [setManagerStats])
 
   useEffect(() => {
-    let cancelled = false
-    const fetchStats = async () => {
-      try {
-        setLoading(true)
-        const stats = await api.dashboard.managerStats()
-        if (!cancelled) setManagerStats(stats)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load dashboard')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    void loadDashboard()
+    return () => {
+      requestSequence.current += 1
     }
-    fetchStats()
-    return () => { cancelled = true }
-  }, [setManagerStats, setLoading, setError])
+  }, [loadDashboard])
 
-  if (loading && !managerStats) {
+  if (loading && !managerStats) return <DashboardSkeleton />
+
+  if (!managerStats) {
     return (
-      <div className="space-y-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-48 rounded-lg mb-2" />
-            <Skeleton className="h-4 w-64 rounded-lg" />
-          </div>
-          <Skeleton className="h-9 w-28 rounded-lg" />
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i}>
-              <Skeleton className="h-3 w-24 rounded mb-3" />
-              <Skeleton className="h-9 w-32 rounded mb-1" />
-              <Skeleton className="h-3 w-20 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-          <div className="xl:col-span-7">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 py-4 border-t border-border first:border-t-0">
-                <Skeleton className="h-4 w-28 rounded" />
-                <Skeleton className="h-4 flex-1 rounded" />
-                <Skeleton className="h-4 w-20 rounded" />
-              </div>
-            ))}
-          </div>
-          <div className="xl:col-span-5 space-y-10">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i}>
-                <Skeleton className="h-3 w-28 rounded mb-2" />
-                <Skeleton className="h-1 w-full rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <main dir="rtl" className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المدير</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            متابعة أداء الفريق وطلبات المراجعة المعلقة
+          </p>
+        </header>
+        <Card className="shadow-none">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+            <p role="alert" className="text-sm text-destructive">
+              {error ?? 'لا تتوفر بيانات لوحة التحكم حالياً.'}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadDashboard()}
+              disabled={loading}
+              aria-busy={loading}
+              className="h-11"
+            >
+              {loading ? 'جارٍ التحديث…' : 'إعادة المحاولة'}
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
     )
   }
 
-  if (!managerStats) return null
-
-  const funnelCounts: Record<RequisitionStatus, number> = {
-    NEW: managerStats.teamPerformance.reduce((sum, m) => sum + m.openRequisitions, 0),
-    REVIEW: managerStats.pendingReview,
-    PROCESSING: managerStats.pendingReview,
-    SUBMITTED: managerStats.pendingSignOff,
-    APPROVED: 0,
-    REVISE: 0,
-    WON: managerStats.wonCount,
-    LOST: managerStats.lostCount,
-    DECLINED: 0,
-  }
-
-  const funnelTotal = FUNNEL_ORDER.reduce((sum, s) => sum + funnelCounts[s], 0)
-
-const kpis = [
+  const reviewRequests = managerStats.pendingReviews
+  const signOffRequests = managerStats.pendingSignOffs
+  const metrics = [
     {
-      title: 'حجم فريق العمل',
-      value: String(managerStats.teamVolume),
-      subtitle: 'إجمالي طلبات الفريق',
+      title: 'بانتظار المراجعة',
+      value: managerStats.pendingReview,
+      description: 'طلبات تحتاج إلى قرار',
     },
     {
-      title: 'بانتظار مراجعة المدير',
-      value: String(managerStats.pendingReview),
-      subtitle: 'تحتاج إلى قرار (موافقة/تعديل)',
-      accent: managerStats.pendingReview > 0,
+      title: 'بانتظار الاعتماد النهائي',
+      value: managerStats.pendingSignOff,
+      description: 'طلبات تمت مراجعتها',
     },
     {
-      title: 'بانتظار اعتماد داخلي',
-      value: String(managerStats.pendingSignOff),
-      subtitle: 'مُراجعة، بانتظار الاعتماد النهائي',
-      accent: managerStats.pendingSignOff > 0,
+      title: 'إجمالي طلبات الفريق',
+      value: managerStats.teamVolume,
+      description: 'طلبات أعضاء فريقك',
     },
   ]
 
   return (
-    <div dir="rtl" className="space-y-10">
-      <div className="flex items-center justify-between">
+    <main dir="rtl" className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المدير</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             متابعة أداء الفريق وطلبات المراجعة المعلقة
           </p>
         </div>
         <Button
+          type="button"
           onClick={() => navigate('/requisitions')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+          className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
         >
           عرض جميع الطلبات
         </Button>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-8">
-        {kpis.map((stat, i) => (
-          <div
-            key={i}
-            className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0"
-          >
-            <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-              {stat.title}
+      {error && (
+        <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <p role="alert" className="text-sm text-destructive">
+              تعذر تحديث البيانات: {error}
             </p>
-            <p
-              className={
-                'mt-2 text-4xl font-black tabular-nums tracking-tight' +
-                (stat.accent ? ' text-red-700 dark:text-red-400' : '')
-              }
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void loadDashboard()}
+              disabled={loading}
+              aria-busy={loading}
+              className="h-11"
             >
-              {stat.value}
+              {loading ? 'جارٍ التحديث…' : 'إعادة المحاولة'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <section aria-label="ملخص طلبات الفريق" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {metrics.map((metric) => (
+          <Card key={metric.title} className="p-5 shadow-none">
+            <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
+              {metric.title}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-              {stat.subtitle}
+            <p className="text-2xl font-black tabular-nums">
+              {numberFormatter.format(metric.value)}
             </p>
-          </div>
-        ))}
-      </div>
-
-      <div>
-        <p className="mb-2 text-[11px] font-bold text-muted-foreground tracking-wide">
-          توزيع حالات فريق العمل
-        </p>
-        <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-          {funnelTotal > 0 &&
-            FUNNEL_ORDER.map((status) => {
-              const count = funnelCounts[status]
-              if (count === 0) return null
-              return (
-                <div
-                  key={status}
-                  title={`${STATUS_META[status].label}: ${count}`}
-                  className={`${STATUS_META[status].badgeClass} h-full`}
-                  style={{ width: `${(count / funnelTotal) * 100}%` }}
-                />
-              )
-            })}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-          {FUNNEL_ORDER.map((status) => {
-            const count = funnelCounts[status]
-            return (
-              <div key={status} className="flex items-center gap-1.5">
-                <span
-                  className={`inline-block h-2 w-2 rounded-full ${STATUS_META[status].badgeClass}`}
-                />
-                <span className="text-[11px] text-muted-foreground font-medium">
-                  {STATUS_META[status].label}
-                </span>
-                <span className="text-[11px] font-black tabular-nums">{count}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-        <div className="xl:col-span-7 space-y-10">
-          <div>
-            <div className="mb-3 flex items-baseline justify-between">
-              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                طلبات بانتظار مراجعتك
-              </p>
-              <span className="text-[11px] text-muted-foreground">
-                مرتبة حسب تاريخ الاستحقاق
-              </span>
-            </div>
-            <div className="divide-y divide-border">
-              {managerStats.pendingReviews.length > 0 ? (
-                managerStats.pendingReviews.map((req) => {
-                  const urgency = getUrgencyMeta(req.daysLeft)
-                  const overdue = req.daysLeft < 0
-                  return (
-                    <div
-                      key={req.id}
-                      onClick={() => openDrawer(req.id)}
-                      className="flex items-center gap-4 -mx-4 cursor-pointer rounded-lg px-4 py-3.5 transition-colors hover:bg-muted/40"
-                    >
-                      <span
-                        dir="ltr"
-                        className="w-28 shrink-0 font-mono text-sm font-bold text-primary"
-                      >
-                        {req.identifier}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{req.title}</p>
-                        <p className="truncate text-[11px] text-muted-foreground font-medium">
-                          {req.clientName} · {req.plantName}
-                        </p>
-                      </div>
-                      <div className="hidden shrink-0 sm:block">
-                        <StatusBadge status={req.status as RequisitionStatus} />
-                      </div>
-                      <div className="shrink-0 text-left">
-                        <p
-                          className={`text-sm font-bold tabular-nums ${
-                            overdue ? 'text-red-700 dark:text-red-400' : ''
-                          }`}
-                        >
-                          {formatDateShort(req.dueDate)}
-                        </p>
-                        <p
-                          className={`text-[11px] font-bold ${
-                            overdue
-                              ? 'text-red-700 dark:text-red-400'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
-                          {urgency.label}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-              ) : (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  لا توجد طلبات بانتظار المراجعة
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-3 flex items-baseline justify-between">
-              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                طلبات بانتظار الاعتماد النهائي (SUBMITTED)
-              </p>
-              <span className="text-[11px] text-muted-foreground">
-                مرتبة حسب تاريخ التقديم
-              </span>
-            </div>
-            <div className="divide-y divide-border">
-              {managerStats.pendingSignOffs.length > 0 ? (
-                managerStats.pendingSignOffs.map((req) => (
-                  <div
-                    key={req.id}
-                    onClick={() => openDrawer(req.id)}
-                    className="flex items-center gap-4 -mx-4 cursor-pointer rounded-lg px-4 py-3.5 transition-colors hover:bg-muted/40"
-                  >
-                    <span
-                      dir="ltr"
-                      className="w-28 shrink-0 font-mono text-sm font-bold text-primary"
-                    >
-                      {req.identifier}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{req.title}</p>
-                      <p className="truncate text-[11px] text-muted-foreground font-medium">
-                        {req.clientName} · {req.plantName}
-                      </p>
-                    </div>
-                    <div className="hidden shrink-0 sm:block">
-                      <StatusBadge status="SUBMITTED" />
-                    </div>
-                    <div className="shrink-0 text-left">
-                      <p className="text-sm font-bold tabular-nums">
-                        {formatDateShort(req.submittedAt)}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground font-bold">
-                        تم التقديم
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  لا توجد طلبات بانتظار الاعتماد
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="xl:col-span-5 space-y-10">
-          <Card>
-            <div className="p-4 border-b border-border">
-              <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                أداء أعضاء الفريق
-              </p>
-            </div>
-            <div className="p-4">
-              {managerStats.teamPerformance.length > 0 ? (
-                <div className="space-y-4">
-                  {managerStats.teamPerformance.map((member) => (
-                    <div key={member.userId} className="space-y-2">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="text-sm font-bold">{member.displayName}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-lg font-black">{member.openRequisitions}</p>
-                          <p className="text-[10px] text-muted-foreground">نشطة</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-lg font-black text-amber-700 dark:text-amber-400">
-                            {member.reviseCount}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">تعديل</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-muted/50">
-                          <p className="text-lg font-black text-blue-700 dark:text-blue-400">
-                            {member.submittedCount}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">مُقدمة</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  لا توجد بيانات لأعضاء الفريق
-                </p>
-              )}
-            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{metric.description}</p>
           </Card>
-        </div>
-      </div>
-    </div>
+        ))}
+      </section>
+
+      <section aria-labelledby="pending-review-heading" className="space-y-3">
+        <header className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="pending-review-heading" className="text-sm font-black">
+            طلبات بانتظار المراجعة
+            <span className="ms-2 text-xs font-semibold text-muted-foreground">
+              ({numberFormatter.format(reviewRequests.length)})
+            </span>
+          </h2>
+          <p className="text-xs text-muted-foreground">مرتبة حسب تاريخ الاستحقاق</p>
+        </header>
+        <Card className="shadow-none">
+          {reviewRequests.length > 0 ? (
+            <>
+              <ul className="divide-y divide-border p-2">
+                {reviewRequests.slice(0, MAX_VISIBLE_REQUESTS).map((request) => {
+                  const urgency = getUrgencyMeta(request.daysLeft)
+                  return (
+                    <RequestRow
+                      key={request.id}
+                      id={request.id}
+                      identifier={request.identifier}
+                      title={request.title}
+                      clientName={request.clientName}
+                      plantName={request.plantName}
+                      status={request.status as RequisitionStatus}
+                      date={formatDateShort(request.dueDate)}
+                      dateLabel={urgency.label}
+                      urgent={request.daysLeft < 0}
+                      onOpen={openDrawer}
+                    />
+                  )
+                })}
+              </ul>
+              {reviewRequests.length > MAX_VISIBLE_REQUESTS && (
+                <div className="border-t border-border p-3">
+                  <Button asChild variant="ghost" className="h-11 w-full">
+                    <Link to="/requisitions">عرض جميع الطلبات</Link>
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              لا توجد طلبات بانتظار المراجعة
+            </p>
+          )}
+        </Card>
+      </section>
+
+      <section aria-labelledby="pending-signoff-heading" className="space-y-3">
+        <header className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="pending-signoff-heading" className="text-sm font-black">
+            طلبات بانتظار الاعتماد النهائي
+            <span className="ms-2 text-xs font-semibold text-muted-foreground">
+              ({numberFormatter.format(signOffRequests.length)})
+            </span>
+          </h2>
+          <p className="text-xs text-muted-foreground">مرتبة حسب تاريخ التقديم</p>
+        </header>
+        <Card className="shadow-none">
+          {signOffRequests.length > 0 ? (
+            <>
+              <ul className="divide-y divide-border p-2">
+                {signOffRequests.slice(0, MAX_VISIBLE_REQUESTS).map((request) => (
+                  <RequestRow
+                    key={request.id}
+                    id={request.id}
+                    identifier={request.identifier}
+                    title={request.title}
+                    clientName={request.clientName}
+                    plantName={request.plantName}
+                    status="SUBMITTED"
+                    date={formatDateShort(request.submittedAt)}
+                    dateLabel="تاريخ التقديم"
+                    onOpen={openDrawer}
+                  />
+                ))}
+              </ul>
+              {signOffRequests.length > MAX_VISIBLE_REQUESTS && (
+                <div className="border-t border-border p-3">
+                  <Button asChild variant="ghost" className="h-11 w-full">
+                    <Link to="/requisitions">عرض جميع الطلبات</Link>
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              لا توجد طلبات بانتظار الاعتماد النهائي
+            </p>
+          )}
+        </Card>
+      </section>
+
+      <section aria-labelledby="team-performance-heading" className="space-y-3">
+        <h2 id="team-performance-heading" className="text-sm font-black">أداء أعضاء الفريق</h2>
+        <Card className="overflow-hidden shadow-none">
+          {managerStats.teamPerformance.length > 0 ? (
+            <Table className="min-w-[560px]">
+              <TableCaption className="sr-only">عدد الطلبات حسب حالة كل عضو في الفريق</TableCaption>
+              <TableHeader>
+                <TableRow className="border-b border-border hover:bg-transparent">
+                  <TableHead scope="col" className="px-5">عضو الفريق</TableHead>
+                  <TableHead scope="col" className="px-5">طلبات جارية</TableHead>
+                  <TableHead scope="col" className="px-5">تحتاج إلى تعديل</TableHead>
+                  <TableHead scope="col" className="px-5">مقدّمة</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                  {managerStats.teamPerformance.map((member) => (
+                    <TableRow key={member.userId}>
+                      <TableHead scope="row" className="px-5 py-3.5 text-start font-semibold">
+                        {member.displayName}
+                      </TableHead>
+                      <TableCell className="px-5 py-3.5 tabular-nums">
+                        {numberFormatter.format(member.openRequisitions)}
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 tabular-nums">
+                        {numberFormatter.format(member.reviseCount)}
+                      </TableCell>
+                      <TableCell className="px-5 py-3.5 tabular-nums">
+                        {numberFormatter.format(member.submittedCount)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <CardContent>
+              <p className="py-5 text-center text-sm text-muted-foreground">
+                لا يوجد أعضاء نشطون مرتبطون بفريقك حالياً.
+              </p>
+            </CardContent>
+          )}
+        </Card>
+      </section>
+    </main>
   )
 }
