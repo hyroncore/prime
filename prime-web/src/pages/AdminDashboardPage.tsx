@@ -1,361 +1,544 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { useAppStore } from '@/store/useAppStore'
-import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { useToast } from '@/hooks/use-toast'
 import { formatRelativeTime } from '@/lib/format'
+import type { BackupHistoryResponseDto, SystemHealthDto } from '@/lib/types'
+import { api } from '@/lib/api'
+import { useAppStore } from '@/store/useAppStore'
+
+const numberFormatter = new Intl.NumberFormat('ar')
+
+function getTotalRecords(health: SystemHealthDto | null) {
+  if (!health) return null
+  const { tableCounts } = health
+  return (
+    tableCounts.users +
+    tableCounts.clients +
+    tableCounts.plants +
+    tableCounts.requisitions +
+    tableCounts.auditLogs +
+    tableCounts.attachments +
+    tableCounts.notifications +
+    tableCounts.permissions
+  )
+}
+
+function getLatencyLabel(latencyMs: number) {
+  if (latencyMs > 200) return 'بطيء، قد يكون السبب بدء تشغيل بارد'
+  if (latencyMs >= 50) return 'زمن استجابة متوسط'
+  return 'زمن استجابة جيد'
+}
+
+function getHealthBadgeClass(status: string) {
+  if (status === 'سليم') {
+    return 'border-green-200 bg-green-100 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400'
+  }
+  if (status === 'متدهور') {
+    return 'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
+  }
+  return 'border-red-200 bg-red-100 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400'
+}
+
+function formatBackupDate(date: string) {
+  return new Date(date).toLocaleString('ar-SA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 export function AdminDashboardPage() {
   const navigate = useNavigate()
-  const adminStats = useAppStore((s) => s.adminStats)
-  const setAdminStats = useAppStore((s) => s.setAdminStats)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [systemHealth, setSystemHealth] = useState<import('@/lib/types').SystemHealthDto | null>(null)
-  const [backupHistory, setBackupHistory] = useState<import('@/lib/types').BackupHistoryDto[]>([])
-  const [liveUptime, setLiveUptime] = useState<string>('')
+  const { toast } = useToast()
+  const adminStats = useAppStore((state) => state.adminStats)
+  const setAdminStats = useAppStore((state) => state.setAdminStats)
+
+  const [statsLoading, setStatsLoading] = useState(!adminStats)
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const [systemHealth, setSystemHealth] = useState<SystemHealthDto | null>(null)
+  const [healthLoading, setHealthLoading] = useState(true)
+  const [healthError, setHealthError] = useState<string | null>(null)
+  const [backupHistory, setBackupHistory] = useState<BackupHistoryResponseDto>({
+    totalCount: 0,
+    items: [],
+  })
+  const [backupHistoryLoading, setBackupHistoryLoading] = useState(true)
+  const [backupHistoryError, setBackupHistoryError] = useState<string | null>(null)
+  const [exportingBackup, setExportingBackup] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [liveUptime, setLiveUptime] = useState('')
 
   useEffect(() => {
     let cancelled = false
-    const fetchStats = async () => {
+
+    const loadDashboard = async () => {
       try {
-        setLoading(true)
         const stats = await api.dashboard.adminStats()
-        if (!cancelled) setAdminStats(stats)
-        useAppStore.getState().setError(null)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load admin dashboard')
+        if (!cancelled) {
+          setAdminStats(stats)
+          setStatsError(null)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatsError(
+            error instanceof Error ? error.message : 'تعذر تحميل إحصاءات لوحة التحكم.',
+          )
+        }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setStatsLoading(false)
       }
     }
-    fetchStats()
-    return () => { cancelled = true }
+
+    loadDashboard()
+    return () => {
+      cancelled = true
+    }
   }, [setAdminStats])
 
   useEffect(() => {
-    if (!systemHealth?.serverStartedAt) return
-    const start = new Date(systemHealth.serverStartedAt).getTime()
-    const update = () => {
-      const diff = Date.now() - start
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      if (days > 0) setLiveUptime(`${days} يوم، ${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`)
-      else if (hours > 0) setLiveUptime(`${hours} ساعة، ${minutes} دقيقة، ${seconds} ثانية`)
-      else if (minutes > 0) setLiveUptime(`${minutes} دقيقة، ${seconds} ثانية`)
-      else setLiveUptime(`${seconds} ثانية`)
-    }
-    update()
-    const interval = setInterval(update, 1000)
-    return () => clearInterval(interval)
-  }, [systemHealth?.serverStartedAt])
-
-  useEffect(() => {
     let cancelled = false
-    const fetchHealth = async () => {
+
+    const loadHealth = async () => {
       try {
         const health = await api.admin.health()
-        if (!cancelled) setSystemHealth(health)
-      } catch {
-        // silent
+        if (!cancelled) {
+          setSystemHealth(health)
+          setHealthError(null)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHealthError(
+            error instanceof Error ? error.message : 'تعذر تحميل حالة النظام.',
+          )
+        }
+      } finally {
+        if (!cancelled) setHealthLoading(false)
       }
     }
-    fetchHealth()
-    return () => { cancelled = true }
+
+    loadHealth()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
     let cancelled = false
-    const fetchHistory = async () => {
+
+    const loadBackupHistory = async () => {
       try {
         const history = await api.admin.backupHistory()
-        if (!cancelled) setBackupHistory(history)
-      } catch {
-        // silent
+        if (!cancelled) {
+          setBackupHistory(history)
+          setBackupHistoryError(null)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBackupHistoryError(
+            error instanceof Error ? error.message : 'تعذر تحميل سجل النسخ الاحتياطية.',
+          )
+        }
+      } finally {
+        if (!cancelled) setBackupHistoryLoading(false)
       }
     }
-    fetchHistory()
-    return () => { cancelled = true }
+
+    loadBackupHistory()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
+  useEffect(() => {
+    if (!systemHealth?.serverStartedAt) return
+
+    const startTime = new Date(systemHealth.serverStartedAt).getTime()
+    const updateUptime = () => {
+      const totalSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+      const days = Math.floor(totalSeconds / 86400)
+      const hours = Math.floor((totalSeconds % 86400) / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+
+      if (days > 0) {
+        setLiveUptime(`${days} يوم، ${hours} ساعة، ${minutes} دقيقة`)
+      } else if (hours > 0) {
+        setLiveUptime(`${hours} ساعة، ${minutes} دقيقة`)
+      } else if (minutes > 0) {
+        setLiveUptime(`${minutes} دقيقة، ${seconds} ثانية`)
+      } else {
+        setLiveUptime(`${seconds} ثانية`)
+      }
+    }
+
+    updateUptime()
+    const intervalId = window.setInterval(updateUptime, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [systemHealth?.serverStartedAt])
+
   const handleExportBackup = async () => {
+    setExportingBackup(true)
+    setExportError(null)
+
     try {
       const blob = await api.admin.exportBackup()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `prime-backup-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.json`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to export backup')
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `prime-backup-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000)
+
+      toast({ title: 'تم تصدير النسخة الاحتياطية بنجاح' })
+
+      const [historyResult, healthResult] = await Promise.allSettled([
+        api.admin.backupHistory(),
+        api.admin.health(),
+      ])
+      if (historyResult.status === 'fulfilled') {
+        setBackupHistory(historyResult.value)
+        setBackupHistoryError(null)
+      } else {
+        setBackupHistoryError(
+          historyResult.reason instanceof Error
+            ? historyResult.reason.message
+            : 'تعذر تحديث سجل النسخ الاحتياطية.',
+        )
+      }
+      if (healthResult.status === 'fulfilled') {
+        setSystemHealth(healthResult.value)
+        setHealthError(null)
+      } else {
+        setHealthError(
+          healthResult.reason instanceof Error
+            ? healthResult.reason.message
+            : 'تعذر تحديث حالة النظام.',
+        )
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'تعذر تصدير النسخة الاحتياطية.'
+      setExportError(message)
+      toast({ title: message, variant: 'destructive' })
+    } finally {
+      setExportingBackup(false)
     }
   }
 
-  if (loading && !adminStats) {
-    return (
-      <div className="space-y-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-48 rounded-lg mb-2" />
-            <Skeleton className="h-4 w-64 rounded-lg" />
-          </div>
-          <Skeleton className="h-9 w-28 rounded-lg" />
-        </div>
-        <div className="grid grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="p-5">
-              <Skeleton className="h-3 w-24 rounded mb-3" />
-              <Skeleton className="h-7 w-32 rounded mb-1" />
-              <Skeleton className="h-3 w-20 rounded" />
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-4 dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-bold text-red-700 dark:text-red-400">{error}</p>
-      </div>
-    )
-  }
-
-  if (!adminStats) return null
-
-  const lastBackupDate = systemHealth?.lastBackupAt
-    ? new Date(systemHealth.lastBackupAt).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : 'لا توجد نسخة احتياطية'
+  const totalRecords = getTotalRecords(systemHealth)
+  const lastBackup = systemHealth?.lastBackupAt
+    ? formatBackupDate(systemHealth.lastBackupAt)
+    : null
 
   return (
-    <div dir="rtl" className="space-y-10">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المدير العام</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            نظرة شاملة على صحة النظام — مستخدمين، عملاء، وإعدادات
-          </p>
-        </div>
-      </div>
+    <main dir="rtl" className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-black tracking-tight">لوحة تحكم مدير النظام</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">نظرة سريعة على حالة النظام وبياناته</p>
+      </header>
 
-      {/* KPIs Grid - 2 Cards: Users & Clients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Card 1: Total Users */}
+      <section aria-label="ملخص النظام" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card className="p-5">
-          <p className="text-xs font-bold text-muted-foreground tracking-wide mb-2">
+          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
             إجمالي المستخدمين
           </p>
-          <div className="text-2xl font-black">{adminStats.totalUsers}</div>
-          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-            حسابات مسجلة في النظام
-          </p>
+          {statsLoading && !adminStats ? (
+            <Skeleton className="h-8 w-16 rounded" />
+          ) : (
+            <p className="text-2xl font-black tabular-nums">
+              {adminStats ? numberFormatter.format(adminStats.totalUsers) : '—'}
+            </p>
+          )}
         </Card>
-
-        {/* Card 2: Total Clients */}
         <Card className="p-5">
-          <p className="text-xs font-bold text-muted-foreground tracking-wide mb-2">
+          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
             إجمالي العملاء
           </p>
-          <div className="text-2xl font-black">{adminStats.totalClients}</div>
-          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-            عملاء مسجلون في النظام
-          </p>
+          {statsLoading && !adminStats ? (
+            <Skeleton className="h-8 w-16 rounded" />
+          ) : (
+            <p className="text-2xl font-black tabular-nums">
+              {adminStats ? numberFormatter.format(adminStats.totalClients) : '—'}
+            </p>
+          )}
         </Card>
-      </div>
+        <Card className="p-5">
+          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
+            إجمالي السجلات
+          </p>
+          {healthLoading && !systemHealth ? (
+            <Skeleton className="h-8 w-16 rounded" />
+          ) : (
+            <p className="text-2xl font-black tabular-nums">
+              {totalRecords === null ? '—' : numberFormatter.format(totalRecords)}
+            </p>
+          )}
+        </Card>
+      </section>
 
-      {/* System Health & Database Backup Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Card: System & Neon DB Health */}
+      {statsError && (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {statsError}
+        </p>
+      )}
+
+      <section aria-label="حالة النظام والنسخ الاحتياطية" className="grid gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-primary">حالة النظام وقاعدة البيانات</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-black">حالة النظام</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <span className="text-sm font-medium">قاعدة البيانات (Neon PostgreSQL)</span>
-              <Badge variant={systemHealth?.status === 'سليم' ? 'default' : 'destructive'}>
-                {systemHealth?.status ?? 'جارٍ التحميل...'}
-              </Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">زمن الاستجابة</p>
-                <p className={`font-bold tabular-nums ${systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 50 ? 'text-green-700' : systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 200 ? 'text-blue-700' : 'text-amber-700'}`}>
-                  {systemHealth?.databaseLatencyMs ?? 0} ملي ثانية
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 50 ? 'ممتاز' : systemHealth?.databaseLatencyMs && systemHealth.databaseLatencyMs < 200 ? 'طبيعي' : 'بطيء / بدء بارد'}
-                </p>
+            {healthError ? (
+              <p role="alert" className="text-sm text-destructive">{healthError}</p>
+            ) : healthLoading && !systemHealth ? (
+              <div className="space-y-4">
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
               </div>
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">وقت تشغيل الخادم</p>
-                <p className="font-mono text-xs">{liveUptime || systemHealth?.serverUptime || '-'}</p>
-              </div>
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">البيئة</p>
-                <p className="font-medium capitalize">{systemHealth?.environment ?? 'production'}</p>
-              </div>
-            </div>
+            ) : systemHealth ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                  <div>
+                    <p className="text-sm font-semibold">قاعدة البيانات</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Neon PostgreSQL</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`rounded-full py-0 ${getHealthBadgeClass(systemHealth.status)}`}
+                  >
+                    {systemHealth.status}
+                  </Badge>
+                </div>
+
+                <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <dt className="text-xs font-bold text-muted-foreground">زمن الاستجابة</dt>
+                    <dd className="text-sm font-semibold tabular-nums">
+                      {numberFormatter.format(systemHealth.databaseLatencyMs)} مللي ثانية
+                    </dd>
+                    <dd className="text-xs text-muted-foreground">
+                      {getLatencyLabel(systemHealth.databaseLatencyMs)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-bold text-muted-foreground">مدة تشغيل الخادم</dt>
+                    <dd className="text-sm font-semibold">{liveUptime || systemHealth.serverUptime}</dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-bold text-muted-foreground">البيئة</dt>
+                    <dd className="text-sm font-semibold">{systemHealth.environment}</dd>
+                  </div>
+                </dl>
+                {systemHealth.databaseError && (
+                  <p className="border-t border-border pt-3 text-xs text-destructive">
+                    {systemHealth.databaseError}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">لا تتوفر بيانات حالة النظام.</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Card: Database Backup & Records */}
         <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">قاعدة البيانات والنسخ الاحتياطية</CardTitle>
-            <Button onClick={handleExportBackup} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
-              تصدير نسخة احتياطية
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-sm font-black">النسخ الاحتياطية</CardTitle>
+            <Button
+              onClick={handleExportBackup}
+              disabled={exportingBackup}
+              aria-busy={exportingBackup}
+              className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
+            >
+              {exportingBackup ? 'جارٍ التصدير…' : 'تصدير نسخة احتياطية'}
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">إجمالي السجلات</p>
-                <p className="font-bold tabular-nums">
-                  {systemHealth?.tableCounts ? (
-                    (systemHealth.tableCounts.users + systemHealth.tableCounts.clients + 
-                    systemHealth.tableCounts.plants + systemHealth.tableCounts.requisitions + 
-                    systemHealth.tableCounts.auditLogs + systemHealth.tableCounts.attachments + 
-                    systemHealth.tableCounts.notifications + systemHealth.tableCounts.permissions).toLocaleString() 
-                  ) : '—'}
+            {exportError && (
+              <p role="alert" className="text-sm text-destructive">{exportError}</p>
+            )}
+
+            <dl className="grid gap-4 border-b border-border pb-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <dt className="text-xs font-bold text-muted-foreground">آخر نسخة احتياطية</dt>
+                <dd className="text-sm font-semibold">
+                  {lastBackup ?? (healthLoading ? 'جارٍ التحميل…' : 'لا توجد نسخة بعد')}
+                </dd>
+              </div>
+              <div className="space-y-1">
+                <dt className="text-xs font-bold text-muted-foreground">إجمالي النسخ</dt>
+                <dd className="text-sm font-semibold tabular-nums">
+                  {backupHistoryLoading
+                    ? '…'
+                    : numberFormatter.format(backupHistory.totalCount)}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="space-y-3">
+              <h2 className="text-xs font-bold tracking-wide text-muted-foreground">
+                سجل النسخ الاحتياطية
+              </h2>
+              {backupHistoryError ? (
+                <p role="alert" className="text-sm text-destructive">{backupHistoryError}</p>
+              ) : backupHistoryLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-10 w-full rounded" />
+                  <Skeleton className="h-10 w-full rounded" />
+                </div>
+              ) : backupHistory.items.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {backupHistory.items.map((backup) => (
+                    <li
+                      key={backup.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{formatBackupDate(backup.createdAt)}</p>
+                        <p className="truncate text-xs text-muted-foreground">{backup.notes}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground" dir="ltr">
+                        {backup.fileSize
+                          ? `${(backup.fileSize / 1024).toFixed(1)} KB`
+                          : '—'}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-lg bg-muted/40 px-4 py-5 text-center">
+                  <p className="text-sm font-semibold">لا يوجد سجل للنسخ الاحتياطية</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    ستظهر النسخ التي تصدّرها هنا لحماية بياناتك ومراجعتها لاحقاً.
                   </p>
                 </div>
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">آخر نسخة احتياطية</p>
-                <p className="font-medium">{lastBackupDate}</p>
-              </div>
-              <div className="p-2 rounded bg-muted/50">
-                <p className="text-muted-foreground text-xs">إجمالي النسخ الاحتياطية</p>
-                <p className="font-bold">{backupHistory.length}</p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-border">
-              <h4 className="text-sm font-bold mb-3">تاريخ النسخ الاحتياطية</h4>
-              {backupHistory.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto divide-y divide-border">
-                  {backupHistory.map((backup) => (
-                    <div key={backup.id} className="py-2 flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-medium">{new Date(backup.createdAt).toLocaleString('ar-SA')}</p>
-                        <p className="text-[11px] text-muted-foreground truncate max-w-xs">{backup.notes}</p>
-                      </div>
-                      <div className="text-right text-[11px] text-muted-foreground">
-                        {backup.fileSize ? `${(backup.fileSize / 1024).toFixed(1)} KB` : '—'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">لا توجد نسخ احتياطية سابقة</p>
               )}
             </div>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      {/* Users & Clients Tables Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Table: Users */}
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">المستخدمون</CardTitle>
-            <Button onClick={() => navigate('/users')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
+      <section aria-label="المستخدمون والعملاء" className="grid gap-6 xl:grid-cols-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-sm font-black">المستخدمون</CardTitle>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/users')}
+              className="min-h-11 text-xs font-semibold"
+            >
               إدارة المستخدمين
             </Button>
           </CardHeader>
-          <CardContent className="p-0">
-            {adminStats.recentUsers && adminStats.recentUsers.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-border hover:bg-transparent">
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 w-[40px]">#</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">الاسم</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">المستخدم</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الحالة</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">آخر دخول</TableHead>
+          {adminStats?.recentUsers.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>المستخدم</TableHead>
+                  <TableHead className="text-center">الحالة</TableHead>
+                  <TableHead className="text-center">آخر دخول</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adminStats.recentUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <p className="font-semibold">{user.displayName || user.username}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
+                        @{user.username}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={
+                          user.isActive
+                            ? 'rounded-full border-green-200 bg-green-100 py-0 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400'
+                            : 'rounded-full border-gray-200 bg-gray-100 py-0 text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400'
+                        }
+                      >
+                        {user.isActive ? 'نشط' : 'معطل'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground">
+                      {user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'لم يسجل دخول بعد'}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {adminStats.recentUsers.map((user) => (
-                    <TableRow key={user.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
-                      <TableCell className="px-4 py-3.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                          <span className="text-sm font-bold text-primary">
-                            {user.displayName?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <p className="text-sm font-semibold">{user.displayName}</p>
-                        <p className="text-[11px] text-muted-foreground font-mono">@{user.username}</p>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-center">
-                        <Badge variant={user.isActive ? 'default' : 'secondary'} className="rounded-full py-0">
-                          {user.isActive ? 'نشط' : 'معطل'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-center text-sm text-muted-foreground">
-                        {user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'لم يسجل دخول'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">لا يوجد مستخدمون</p>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <CardContent>
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {statsLoading
+                  ? 'جارٍ تحميل المستخدمين…'
+                  : statsError
+                    ? 'تعذر تحميل المستخدمين.'
+                    : 'لا يوجد مستخدمون لعرضهم.'}
+              </p>
+            </CardContent>
+          )}
         </Card>
 
-        {/* Table: Clients */}
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">العملاء</CardTitle>
-            <Button onClick={() => navigate('/clients')} className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-sm font-black">العملاء</CardTitle>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/clients')}
+              className="min-h-11 text-xs font-semibold"
+            >
               إدارة العملاء
             </Button>
           </CardHeader>
-          <CardContent className="p-0">
-            {adminStats.topClients && adminStats.topClients.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-border hover:bg-transparent">
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 w-[40px]">#</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4">العميل</TableHead>
-                    <TableHead className="text-[11px] font-bold text-muted-foreground tracking-wider h-10 px-4 text-center">الطلبات</TableHead>
+          {adminStats?.topClients.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>العميل</TableHead>
+                  <TableHead className="text-center">الطلبات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adminStats.topClients.map((client) => (
+                  <TableRow key={client.id}>
+                    <TableCell className="font-semibold">{client.name}</TableCell>
+                    <TableCell className="text-center text-sm font-bold tabular-nums">
+                      {numberFormatter.format(client.totalRequisitions)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {adminStats.topClients.map((client) => (
-                    <TableRow key={client.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
-                      <TableCell className="px-4 py-3.5">
-                        <p className="truncate text-sm font-bold">{client.name}</p>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-center text-base font-black tabular-nums">
-                        {client.totalRequisitions}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات عملاء</p>
-            )}
-          </CardContent>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <CardContent>
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {statsLoading
+                  ? 'جارٍ تحميل العملاء…'
+                  : statsError
+                    ? 'تعذر تحميل العملاء.'
+                    : 'لا توجد بيانات عملاء لعرضها.'}
+              </p>
+            </CardContent>
+          )}
         </Card>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

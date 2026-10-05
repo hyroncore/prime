@@ -1,7 +1,7 @@
 import type {
   AdminDashboardStatsDto,
   AttachmentDto,
-  BackupHistoryDto,
+  BackupHistoryResponseDto,
   ChangePasswordRequest,
   ClientDto,
   CreateClientRequest,
@@ -135,7 +135,7 @@ export const api = {
   admin: {
     health: () => request<SystemHealthDto>('/admin/system/health'),
     exportBackup: () => request<Blob>('/admin/backup/export', { method: 'POST', responseType: 'blob' }),
-    backupHistory: () => request<BackupHistoryDto[]>('/admin/backup/history'),
+    backupHistory: () => request<BackupHistoryResponseDto>('/admin/backup/history'),
   },
 
   requisitions: {

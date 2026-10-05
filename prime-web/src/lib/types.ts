@@ -348,6 +348,11 @@ export interface BackupHistoryDto {
   fileSize: number | null
 }
 
+export interface BackupHistoryResponseDto {
+  totalCount: number
+  items: BackupHistoryDto[]
+}
+
 export type UserRole = 'Admin' | 'Manager' | 'User'
 
 export interface UserDto {

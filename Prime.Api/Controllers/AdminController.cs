@@ -151,10 +151,12 @@ public class AdminController : ControllerBase
     /// Get backup history from audit logs
     /// </summary>
     [HttpGet("backup/history")]
-    public async Task<ActionResult<List<BackupHistoryDto>>> GetBackupHistory()
+    public async Task<ActionResult<BackupHistoryResponseDto>> GetBackupHistory()
     {
-        var history = await _db.RequisitionAuditLogs
-            .Where(a => a.Action == "BackupCreated")
+        var backupLogs = _db.RequisitionAuditLogs
+            .Where(a => a.Action == "BackupCreated");
+        var totalCount = await backupLogs.CountAsync();
+        var history = await backupLogs
             .OrderByDescending(a => a.CreatedAt)
             .Take(20)
             .Select(a => new BackupHistoryDto(
@@ -166,7 +168,7 @@ public class AdminController : ControllerBase
             ))
             .ToListAsync();
 
-        return Ok(history);
+        return Ok(new BackupHistoryResponseDto(totalCount, history));
     }
 
     private static long? ExtractFileSize(string? notes)

@@ -177,3 +177,7 @@ public record BackupHistoryDto(
     int CreatedById,
     string Notes,
     long? FileSize);
+
+public record BackupHistoryResponseDto(
+    int TotalCount,
+    List<BackupHistoryDto> Items);
