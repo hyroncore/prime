@@ -36,13 +36,24 @@ public class DashboardController : ControllerBase
         {
             nameof(RequisitionStatus.NEW),
             nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING)
+            nameof(RequisitionStatus.PROCESSING),
+            nameof(RequisitionStatus.MANAGER_REVIEW),
+            nameof(RequisitionStatus.READY_FOR_APPROVAL),
+            nameof(RequisitionStatus.INTERNAL_APPROVAL),
+            nameof(RequisitionStatus.APPROVED),
+            nameof(RequisitionStatus.SUBMITTED),
+            nameof(RequisitionStatus.REVISE)
         };
 
         var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
         var newCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.NEW));
         var reviewCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.REVIEW));
         var processingCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.PROCESSING));
+        var managerReviewCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.MANAGER_REVIEW));
+        var readyForApprovalCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.READY_FOR_APPROVAL));
+        var internalApprovalCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.INTERNAL_APPROVAL));
+        var approvedCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.APPROVED));
+        var reviseCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.REVISE));
         var submittedCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.SUBMITTED));
         var wonCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));
         var lostCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.LOST));
@@ -135,6 +146,11 @@ public class DashboardController : ControllerBase
             newCount,
             reviewCount,
             processingCount,
+            managerReviewCount,
+            readyForApprovalCount,
+            internalApprovalCount,
+            approvedCount,
+            reviseCount,
             overdueCount,
             submittedCount,
             wonCount,
@@ -173,11 +189,17 @@ public class DashboardController : ControllerBase
                 .Where(r => r.CreatedById == userId)
                 .ToListAsync();
 
-            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
+            var openStatuses = new[]
+            {
+                "NEW", "REVIEW", "PROCESSING", "MANAGER_REVIEW",
+                "READY_FOR_APPROVAL", "INTERNAL_APPROVAL", "APPROVED",
+                "SUBMITTED", "REVISE"
+            };
             var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
             var draftCount = requisitions.Count(r => r.Status == "NEW");
-            var awaitingReview = requisitions.Count(r => r.Status == "REVIEW");
-            var awaitingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
+            var awaitingReview = requisitions.Count(r =>
+                r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW");
+            var awaitingSignOff = requisitions.Count(r => r.Status == "INTERNAL_APPROVAL");
             var reviseCount = requisitions.Count(r => r.Status == "REVISE");
             var wonCount = requisitions.Count(r => r.Status == "WON");
             var lostCount = requisitions.Count(r => r.Status == "LOST");
@@ -189,7 +211,10 @@ public class DashboardController : ControllerBase
             var overdueCount = requisitions.Count(r => openStatuses.Contains(r.Status) && r.DueDate < now.Date);
 
             var actionRequired = requisitions
-                .Where(r => r.Status == "REVISE")
+                .Where(r =>
+                    r.Status == "REVISE" ||
+                    r.Status == "READY_FOR_APPROVAL" ||
+                    r.Status == "APPROVED")
                 .Select(r => new UrgentRequisitionDto(
                     r.Id,
                     r.Identifier,
@@ -309,7 +334,10 @@ public class DashboardController : ControllerBase
             var userId = GetCurrentUserId();
             var isAdmin = User.IsInRole(UserRoles.Admin);
 
-            var managerActionableStatuses = new[] { "REVIEW", "SUBMITTED" };
+            var managerActionableStatuses = new[]
+            {
+                "REVIEW", "MANAGER_REVIEW", "INTERNAL_APPROVAL"
+            };
             var teamUsers = await _db.Users
                 .Where(u => u.IsActive
                     && u.Role == UserRoles.User
@@ -319,7 +347,8 @@ public class DashboardController : ControllerBase
 
             IQueryable<PurchaseRequisition> requisitionsQuery = _db.PurchaseRequisitions
                 .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client);
+                    .ThenInclude(p => p!.Client)
+                .Include(r => r.AuditLogs);
             if (!isAdmin)
             {
                 requisitionsQuery = requisitionsQuery
@@ -330,9 +359,15 @@ public class DashboardController : ControllerBase
                 .Where(r => managerActionableStatuses.Contains(r.Status))
                 .ToList();
 
-            var openStatuses = new[] { "NEW", "REVIEW", "PROCESSING" };
-            var pendingReview = requisitions.Count(r => r.Status == "REVIEW");
-            var pendingSignOff = requisitions.Count(r => r.Status == "SUBMITTED");
+            var openStatuses = new[]
+            {
+                "NEW", "REVIEW", "PROCESSING", "MANAGER_REVIEW",
+                "READY_FOR_APPROVAL", "INTERNAL_APPROVAL", "APPROVED",
+                "SUBMITTED", "REVISE"
+            };
+            var pendingReview = requisitions.Count(r =>
+                r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW");
+            var pendingSignOff = requisitions.Count(r => r.Status == "INTERNAL_APPROVAL");
             var teamVolume = teamRequisitions.Count;
             var wonCount = teamRequisitions.Count(r => r.Status == "WON");
             var lostCount = teamRequisitions.Count(r => r.Status == "LOST");
@@ -342,7 +377,7 @@ public class DashboardController : ControllerBase
             var now = DateTime.UtcNow;
 
             var pendingReviews = requisitions
-                .Where(r => r.Status == "REVIEW")
+                .Where(r => r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW")
                 .Select(r => new UrgentRequisitionDto(
                     r.Id, r.Identifier, r.Title, 
                     r.Plant?.Client?.Name ?? "—", r.Plant?.PlantName ?? "—", 
@@ -352,12 +387,16 @@ public class DashboardController : ControllerBase
                 .ToList();
 
             var pendingSignOffs = requisitions
-                .Where(r => r.Status == "SUBMITTED")
+                .Where(r => r.Status == "INTERNAL_APPROVAL")
                 .Select(r => new PendingSignOffDto(
                     r.Id, r.Identifier, r.Title, 
                     r.Plant?.PlantName ?? "—", r.Plant?.Client?.Name ?? "—", 
-                    r.SubmittedAt ?? DateTime.MinValue))
-                .OrderBy(r => r.SubmittedAt)
+                    r.AuditLogs
+                        .Where(a => a.Action == "InternalApprovalRequested")
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => (DateTime?)a.CreatedAt)
+                        .FirstOrDefault() ?? r.SubmittedAt ?? r.CreatedAt))
+                .OrderBy(r => r.RequestedAt)
                 .ToList();
 
             var teamPerformance = teamUsers
@@ -410,22 +449,30 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var reviewCount = await _db.PurchaseRequisitions
-                .Where(r => r.Status == "REVIEW")
+            IQueryable<PurchaseRequisition> query = _db.PurchaseRequisitions;
+            if (User.IsInRole(UserRoles.Manager) && !User.IsInRole(UserRoles.Admin))
+            {
+                var managerId = GetCurrentUserId();
+                query = query.Where(r => r.CreatedBy != null && r.CreatedBy.ManagerId == managerId);
+            }
+
+            var reviewCount = await query
+                .Where(r => r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW")
                 .CountAsync();
 
-            var submittedCount = await _db.PurchaseRequisitions
-                .Where(r => r.Status == "SUBMITTED")
+            var internalCount = await query
+                .Where(r => r.Status == "INTERNAL_APPROVAL")
                 .CountAsync();
 
-            var archiveCount = await _db.PurchaseRequisitions
+            var archiveCount = await query
                 .Where(r =>
                     r.Status == "DECLINED" ||
-                    r.Status == "APPROVED" ||
-                    r.Status == "REVISE")
+                    r.Status == "SUBMITTED" ||
+                    r.Status == "WON" ||
+                    r.Status == "LOST")
                 .CountAsync();
 
-            return Ok(new WorkflowCountsDto(reviewCount, submittedCount, archiveCount));
+            return Ok(new WorkflowCountsDto(reviewCount, internalCount, archiveCount));
         }
         catch (Exception ex)
         {

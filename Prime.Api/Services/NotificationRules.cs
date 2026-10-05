@@ -14,7 +14,12 @@ public static class NotificationRules
     {
         nameof(RequisitionStatus.NEW),
         nameof(RequisitionStatus.REVIEW),
-        nameof(RequisitionStatus.PROCESSING)
+        nameof(RequisitionStatus.PROCESSING),
+        nameof(RequisitionStatus.MANAGER_REVIEW),
+        nameof(RequisitionStatus.READY_FOR_APPROVAL),
+        nameof(RequisitionStatus.INTERNAL_APPROVAL),
+        nameof(RequisitionStatus.APPROVED),
+        nameof(RequisitionStatus.REVISE),
     };
 
     public static List<NotificationCandidate> Evaluate(

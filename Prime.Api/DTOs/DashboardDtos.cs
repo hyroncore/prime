@@ -60,6 +60,11 @@ public record DashboardStatsDto(
     int NewCount,
     int ReviewCount,
     int ProcessingCount,
+    int ManagerReviewCount,
+    int ReadyForApprovalCount,
+    int InternalApprovalCount,
+    int ApprovedCount,
+    int ReviseCount,
     int OverdueCount,
     int SubmittedCount,
     int WonCount,
@@ -108,7 +113,7 @@ public record PendingSignOffDto(
     string Title,
     string PlantName,
     string ClientName,
-    DateTime SubmittedAt);
+    DateTime RequestedAt);
 
 public record TeamMemberStatsDto(
     int UserId,

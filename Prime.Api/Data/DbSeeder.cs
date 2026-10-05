@@ -94,9 +94,9 @@ public static class DbSeeder
             new() { Key = "req:delete", Description = "Hard delete requisition (NEW state only)", Category = "requisition" },
             new() { Key = "req:submit_review", Description = "Submit for review (NEW → REVIEW)", Category = "requisition" },
             new() { Key = "req:review_action", Description = "Review action (REVIEW → PROCESSING/DECLINED)", Category = "requisition" },
-            new() { Key = "req:request_submit", Description = "Request internal sign-off (PROCESSING → SUBMITTED)", Category = "requisition" },
-            new() { Key = "req:approve_internal", Description = "Internal sign-off (SUBMITTED → APPROVED)", Category = "requisition" },
-            new() { Key = "req:request_revision", Description = "Request revision (SUBMITTED → REVISE)", Category = "requisition" },
+            new() { Key = "req:request_submit", Description = "Submit completed work for manager review and request approvals", Category = "requisition" },
+            new() { Key = "req:approve_internal", Description = "Grant internal approval (INTERNAL_APPROVAL → APPROVED)", Category = "requisition" },
+            new() { Key = "req:request_revision", Description = "Return a manager-reviewed requisition for revision", Category = "requisition" },
             new() { Key = "req:mark_outcome", Description = "Record client outcome (WON/LOST)", Category = "requisition" },
             
             // Admin
@@ -105,9 +105,14 @@ public static class DbSeeder
 
         foreach (var perm in permissions)
         {
-            if (!db.Permissions.Any(p => p.Key == perm.Key))
+            var existing = db.Permissions.FirstOrDefault(p => p.Key == perm.Key);
+            if (existing is null)
             {
                 db.Permissions.Add(perm);
+            }
+            else if (existing.Description != perm.Description)
+            {
+                existing.Description = perm.Description;
             }
         }
         db.SaveChanges();

@@ -57,7 +57,17 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 ]
 
 const PAGE_SIZE = 10
-const OPEN_STATUSES = new Set(['NEW', 'REVIEW', 'PROCESSING'])
+const OPEN_STATUSES = new Set([
+  'NEW',
+  'REVIEW',
+  'PROCESSING',
+  'MANAGER_REVIEW',
+  'READY_FOR_APPROVAL',
+  'INTERNAL_APPROVAL',
+  'APPROVED',
+  'SUBMITTED',
+  'REVISE',
+])
 const numberFormatter = new Intl.NumberFormat('ar')
 
 export function RequisitionsPage() {

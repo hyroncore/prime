@@ -61,6 +61,21 @@ public class RequisitionsControllerTests : IDisposable
         }
     }
 
+    private void SetCurrentUser(int userId, string role)
+    {
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim(ClaimTypes.Role, role),
+                }, "test"))
+            }
+        };
+    }
+
     private async Task<int> SeedClientAndPlantAsync(string shortCode = "TT")
     {
         var client = new Client { Name = "جهة اختبار" };
@@ -274,9 +289,21 @@ public class RequisitionsControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task RequestSubmit_RequiresNotesAndSubmitsForSignOff()
+    public async Task RequisitionWorkflow_SeparatesReviewApprovalAndClientSubmission()
     {
         var plantId = await SeedClientAndPlantAsync();
+        var owner = await _db.Users.FindAsync(1);
+        owner!.ManagerId = 2;
+        _db.Users.Add(new AppUser
+        {
+            Id = 2,
+            Username = "manager",
+            DisplayName = "Manager",
+            Role = "Manager",
+            PasswordHash = "dummy",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
         var requisition = new PurchaseRequisition
         {
             Identifier = "TT-03-0001",
@@ -291,18 +318,100 @@ public class RequisitionsControllerTests : IDisposable
         _db.PurchaseRequisitions.Add(requisition);
         await _db.SaveChangesAsync();
 
-        var invalid = await _controller.RequestSubmit(requisition.Id, new RequestSubmitRequest(" "));
-        Assert.Equal("Submission notes are required.", ErrorMessage(invalid));
-
-        var result = await _controller.RequestSubmit(
+        var invalid = await _controller.RequestManagerReview(
             requisition.Id,
-            new RequestSubmitRequest("تمت مراجعة الطلب"));
+            new RequestSubmitRequest(" "));
+        Assert.Equal("Review notes are required.", ErrorMessage(invalid));
 
-        var dto = Dto(result);
-        Assert.Equal(nameof(RequisitionStatus.SUBMITTED), dto.Status);
-        var audit = Assert.Single(await _db.RequisitionAuditLogs.ToListAsync());
-        Assert.Equal("SubmittedForSignOff", audit.Action);
-        Assert.Equal("تمت مراجعة الطلب", audit.Notes);
+        var managerReview = await _controller.RequestManagerReview(
+            requisition.Id,
+            new RequestSubmitRequest("اكتمل العمل"));
+        Assert.Equal(nameof(RequisitionStatus.MANAGER_REVIEW), Dto(managerReview).Status);
+        Assert.Contains(await _db.Notifications.ToListAsync(),
+            n => n.Type == NotificationTypes.ManagerReviewRequested);
+
+        SetCurrentUser(2, "Manager");
+        var accepted = await _controller.ManagerReview(
+            requisition.Id,
+            new InternalActionRequest("approve", "العمل مكتمل"));
+        Assert.Equal(nameof(RequisitionStatus.READY_FOR_APPROVAL), Dto(accepted).Status);
+        Assert.Contains(await _db.Notifications.ToListAsync(),
+            n => n.Type == NotificationTypes.ManagerReviewAccepted);
+
+        SetCurrentUser(1, "User");
+        var approvalRequest = await _controller.RequestInternalApproval(
+            requisition.Id,
+            new RequestSubmitRequest("يرجى الاعتماد الداخلي"));
+        Assert.Equal(nameof(RequisitionStatus.INTERNAL_APPROVAL), Dto(approvalRequest).Status);
+        Assert.Contains(await _db.Notifications.ToListAsync(),
+            n => n.Type == NotificationTypes.InternalApprovalRequested);
+
+        SetCurrentUser(2, "Manager");
+        var approved = await _controller.InternalAction(
+            requisition.Id,
+            new InternalActionRequest("approve", "تم الاعتماد"));
+        Assert.Equal(nameof(RequisitionStatus.APPROVED), Dto(approved).Status);
+        Assert.Contains(await _db.Notifications.ToListAsync(),
+            n => n.Type == NotificationTypes.InternalApprovalGranted);
+
+        SetCurrentUser(1, "User");
+        var submitted = await _controller.SubmitToClient(
+            requisition.Id,
+            new RequestSubmitRequest("تم الإرسال للعميل"));
+        Assert.Equal(nameof(RequisitionStatus.SUBMITTED), Dto(submitted).Status);
+        Assert.NotNull(requisition.SubmittedAt);
+        Assert.Contains(await _db.RequisitionAuditLogs.ToListAsync(),
+            log => log.Action == "SubmittedToClient");
+    }
+
+    [Fact]
+    public async Task ManagerReviewRevision_NotifiesOwnerAndAllowsResubmission()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        var owner = await _db.Users.FindAsync(1);
+        owner!.ManagerId = 2;
+        _db.Users.Add(new AppUser
+        {
+            Id = 2,
+            Username = "manager",
+            DisplayName = "Manager",
+            Role = "Manager",
+            PasswordHash = "dummy",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
+        var requisition = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0001",
+            ExternalRef = "REF-1",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "طلب اختبار",
+            DueDate = DateTime.UtcNow.AddDays(7),
+            Status = nameof(RequisitionStatus.PROCESSING),
+            CreatedById = 1,
+        };
+        _db.PurchaseRequisitions.Add(requisition);
+        await _db.SaveChangesAsync();
+
+        await _controller.RequestManagerReview(
+            requisition.Id,
+            new RequestSubmitRequest("اكتمل العمل"));
+        SetCurrentUser(2, "Manager");
+        var revised = await _controller.ManagerReview(
+            requisition.Id,
+            new InternalActionRequest("revise", "أكمل تفاصيل السعر"));
+
+        Assert.Equal(nameof(RequisitionStatus.REVISE), Dto(revised).Status);
+        Assert.Contains(await _db.Notifications.ToListAsync(),
+            n => n.Type == NotificationTypes.RequisitionRevisionRequested &&
+                 n.Message == "أكمل تفاصيل السعر");
+
+        SetCurrentUser(1, "User");
+        var resubmitted = await _controller.RequestManagerReview(
+            requisition.Id,
+            new RequestSubmitRequest("تم إكمال التعديل"));
+        Assert.Equal(nameof(RequisitionStatus.MANAGER_REVIEW), Dto(resubmitted).Status);
     }
 
     [Fact]

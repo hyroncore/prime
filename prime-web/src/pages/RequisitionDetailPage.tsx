@@ -158,7 +158,11 @@ export function RequisitionDetailPage() {
     setBusy(true)
     setStatusError(null)
     try {
-      await updateRequisitionStatus(requisitionId, status, notes.trim())
+      if (detail?.status === 'SUBMITTED' && (status === 'WON' || status === 'LOST')) {
+        await api.requisitions.markOutcome(requisitionId, status, notes.trim())
+      } else {
+        await updateRequisitionStatus(requisitionId, status, notes.trim())
+      }
       setNotes('')
       await load()
       successToast('تم تحديث حالة الطلب بنجاح')
@@ -169,39 +173,24 @@ export function RequisitionDetailPage() {
     }
   }
 
-  const handleSignOffRequest = async () => {
+  const handleWorkflowRequest = async (
+    action: (notes: string) => Promise<unknown>,
+    successMessage: string,
+    errorMessage: string,
+  ) => {
     if (!notes.trim()) {
-      setStatusError('يرجى كتابة ملاحظات قبل إرسال الطلب إلى المدير')
+      setStatusError('يرجى كتابة ملاحظات قبل تنفيذ الإجراء')
       return
     }
     setBusy(true)
     setStatusError(null)
     try {
-      await api.requisitions.requestSignOff(requisitionId, notes.trim())
+      await action(notes.trim())
       setNotes('')
       await load()
-      successToast('تم إرسال الطلب إلى المدير للاعتماد')
+      successToast(successMessage)
     } catch (e) {
-      setStatusError(e instanceof Error ? e.message : 'تعذر إرسال الطلب إلى المدير')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleManagerInputRequest = async () => {
-    if (!notes.trim()) {
-      setStatusError('يرجى كتابة سبب طلب المراجعة')
-      return
-    }
-    setBusy(true)
-    setStatusError(null)
-    try {
-      await api.requisitions.requestManagerInput(requisitionId, notes.trim())
-      setNotes('')
-      await load()
-      successToast('تم إرسال طلب المراجعة إلى المدير')
-    } catch (e) {
-      setStatusError(e instanceof Error ? e.message : 'تعذر إرسال طلب المراجعة')
+      setStatusError(e instanceof Error ? e.message : errorMessage)
     } finally {
       setBusy(false)
     }
@@ -283,14 +272,30 @@ export function RequisitionDetailPage() {
   }
 
   const allowed = (ALLOWED_TRANSITIONS[detail.status] ?? []).filter((target) => {
-    if (role === 'Admin' || role === 'Manager') return true
-    // Standard user can only transition NEW -> REVIEW
-    return detail.status === 'NEW' && target === 'REVIEW'
+    return role === 'User' &&
+      detail.createdById === currentUserId &&
+      ((detail.status === 'NEW' && target === 'REVIEW') ||
+        (detail.status === 'SUBMITTED' && (target === 'WON' || target === 'LOST')))
   })
-  const canRequestManagerAction =
+  const isOwner = detail.createdById === currentUserId
+  const isManager = role === 'Manager' || role === 'Admin'
+  const canRequestManagerReview =
     role === 'User' &&
-    detail.status === 'PROCESSING' &&
-    detail.createdById === currentUserId
+    isOwner &&
+    (detail.status === 'PROCESSING' || detail.status === 'REVISE')
+  const canRequestInternalApproval =
+    role === 'User' && isOwner && detail.status === 'READY_FOR_APPROVAL'
+  const canSubmitToClient = role === 'User' && isOwner && detail.status === 'APPROVED'
+  const canInitialManagerReview = isManager && detail.status === 'REVIEW'
+  const canManagerReview = isManager && detail.status === 'MANAGER_REVIEW'
+  const canManagerApproveInternally = isManager && detail.status === 'INTERNAL_APPROVAL'
+  const hasWorkflowAction =
+    canRequestManagerReview ||
+    canRequestInternalApproval ||
+    canSubmitToClient ||
+    canInitialManagerReview ||
+    canManagerReview ||
+    canManagerApproveInternally
 
   return (
     <div dir="rtl" className="mx-auto w-full max-w-screen-xl space-y-6">
@@ -490,25 +495,25 @@ export function RequisitionDetailPage() {
         </CardContent>
       </Card>
 
-      {(allowed.length > 0 || canRequestManagerAction) && (
+      {(allowed.length > 0 || hasWorkflowAction) && (
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-bold">
-              {canRequestManagerAction ? 'إجراء الطلب' : 'تغيير الحالة'}
+              {hasWorkflowAction ? 'إجراء الطلب' : 'تغيير الحالة'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 border-t pt-5">
             <div className="space-y-2">
               <Label htmlFor="status-change-notes">
-                {canRequestManagerAction ? 'ملاحظات للمدير' : 'وصف التغيير'}
+                {hasWorkflowAction ? 'ملاحظات الإجراء' : 'وصف التغيير'}
               </Label>
               <Textarea
                 id="status-change-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={
-                  canRequestManagerAction
-                    ? 'اكتب ملاحظاتك أو سبب طلب مراجعة المدير'
+                  hasWorkflowAction
+                    ? 'اكتب ملاحظات الإجراء أو سبب التعديل'
                     : 'اكتب سبب تغيير الحالة'
                 }
                 disabled={busy}
@@ -523,24 +528,150 @@ export function RequisitionDetailPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {canRequestManagerAction && (
+              {canRequestManagerReview && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    void handleWorkflowRequest(
+                      (message) => api.requisitions.requestManagerReview(requisitionId, message),
+                      'تم إرسال الطلب إلى المدير للمراجعة',
+                      'تعذر إرسال الطلب للمراجعة',
+                    )
+                  }
+                  disabled={busy}
+                  className="min-h-11"
+                >
+                  {busy ? 'جارٍ الإرسال...' : 'إرسال للمدير للمراجعة'}
+                </Button>
+              )}
+              {canRequestInternalApproval && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    void handleWorkflowRequest(
+                      (message) => api.requisitions.requestInternalApproval(requisitionId, message),
+                      'تم إرسال طلب الاعتماد الداخلي إلى المدير',
+                      'تعذر إرسال طلب الاعتماد الداخلي',
+                    )
+                  }
+                  disabled={busy}
+                  className="min-h-11"
+                >
+                  {busy ? 'جارٍ الإرسال...' : 'طلب الاعتماد الداخلي'}
+                </Button>
+              )}
+              {canSubmitToClient && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    void handleWorkflowRequest(
+                      (message) => api.requisitions.submitToClient(requisitionId, message),
+                      'تم تسجيل إرسال الطلب إلى العميل',
+                      'تعذر تسجيل إرسال الطلب',
+                    )
+                  }
+                  disabled={busy}
+                  className="min-h-11"
+                >
+                  {busy ? 'جارٍ الإرسال...' : 'تم الإرسال إلى العميل'}
+                </Button>
+              )}
+              {canManagerReview && (
                 <>
                   <Button
                     type="button"
-                    onClick={() => void handleSignOffRequest()}
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.managerReview(requisitionId, 'approve', message),
+                        'تم قبول مراجعة المدير',
+                        'تعذر قبول المراجعة',
+                      )
+                    }
                     disabled={busy}
                     className="min-h-11"
                   >
-                    {busy ? 'جارٍ الإرسال...' : 'إرسال للمدير للاعتماد'}
+                    قبول المراجعة
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void handleManagerInputRequest()}
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.managerReview(requisitionId, 'revise', message),
+                        'تم إرسال طلب التعديل إلى المستخدم',
+                        'تعذر إرسال طلب التعديل',
+                      )
+                    }
                     disabled={busy}
                     className="min-h-11"
                   >
-                    {busy ? 'جارٍ الإرسال...' : 'طلب مراجعة من المدير'}
+                    طلب تعديل
+                  </Button>
+                </>
+              )}
+              {canInitialManagerReview && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.approveReview(requisitionId, message),
+                        'تمت الموافقة على الطلب وبدء المعالجة',
+                        'تعذر بدء معالجة الطلب',
+                      )
+                    }
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    الموافقة وبدء المعالجة
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.declineReview(requisitionId, message),
+                        'تم رفض الطلب',
+                        'تعذر رفض الطلب',
+                      )
+                    }
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    رفض الطلب
+                  </Button>
+                </>
+              )}
+              {canManagerApproveInternally && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.approveInternal(requisitionId, message),
+                        'تم الاعتماد الداخلي',
+                        'تعذر اعتماد الطلب داخلياً',
+                      )
+                    }
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    اعتماد داخلي
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      void handleWorkflowRequest(
+                        (message) => api.requisitions.workflow.requestRevision(requisitionId, message),
+                        'تم إرسال طلب التعديل إلى المستخدم',
+                        'تعذر إرسال طلب التعديل',
+                      )
+                    }
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    طلب تعديل
                   </Button>
                 </>
               )}

@@ -109,7 +109,7 @@ public class NotificationsTests : IDisposable
         _db.RequisitionAuditLogs.Add(new RequisitionAuditLog
         {
             RequisitionId = req.Id,
-            Action = "StatusChanged",
+            Action = "SubmittedToClient",
             StatusTo = nameof(RequisitionStatus.SUBMITTED),
             CreatedAt = Now.Date.AddDays(-30)
         });
@@ -233,6 +233,75 @@ public class NotificationsTests : IDisposable
         Assert.Equal(1, managerList.UnreadCount);
         Assert.Contains(managerList.Items, n => n.Type == NotificationTypes.ManagerInputRequested);
         Assert.IsType<NoContentResult>(await _controller.MarkRead(managerRequest.Id));
+    }
+
+    [Fact]
+    public async Task WorkflowNotifications_AreScopedToTheRequestOwnerAndAssignedManager()
+    {
+        var manager = new AppUser
+        {
+            Id = 3,
+            Username = "manager",
+            DisplayName = "Manager",
+            Role = UserRoles.Manager,
+            PasswordHash = "dummy",
+            IsActive = true,
+            CreatedAt = Now,
+        };
+        var requester = new AppUser
+        {
+            Id = 4,
+            Username = "requester",
+            DisplayName = "Requester",
+            Role = UserRoles.User,
+            PasswordHash = "dummy",
+            IsActive = true,
+            ManagerId = manager.Id,
+            CreatedAt = Now,
+        };
+        _db.Users.AddRange(manager, requester);
+        var requisition = await SeedOpenRequisitionAsync();
+        requisition.CreatedById = requester.Id;
+        var types = new[]
+        {
+            NotificationTypes.ManagerReviewRequested,
+            NotificationTypes.InternalApprovalRequested,
+            NotificationTypes.ManagerReviewAccepted,
+            NotificationTypes.RequisitionRevisionRequested,
+        };
+        for (var i = 0; i < types.Length; i++)
+        {
+            _db.Notifications.Add(new Notification
+            {
+                RequisitionId = requisition.Id,
+                Type = types[i],
+                Title = types[i],
+                Message = "تفاصيل الإجراء",
+                DedupKey = $"workflow:{i}",
+                CreatedAt = Now.AddMinutes(-i),
+            });
+        }
+        await _db.SaveChangesAsync();
+
+        SetRole(UserRoles.User, requester.Id);
+        var userList = List(await _controller.List());
+        Assert.Equal(
+            new[] { NotificationTypes.ManagerReviewAccepted, NotificationTypes.RequisitionRevisionRequested },
+            userList.Items.Select(n => n.Type).OrderBy(type => type));
+        Assert.Equal(2, userList.UnreadCount);
+
+        var managerReviewNotice = await _db.Notifications.SingleAsync(
+            n => n.Type == NotificationTypes.ManagerReviewRequested);
+        Assert.IsType<ForbidResult>(await _controller.MarkRead(managerReviewNotice.Id));
+        await _controller.MarkAllRead();
+        Assert.Null(managerReviewNotice.ReadAt);
+
+        SetRole(UserRoles.Manager, manager.Id);
+        var managerList = List(await _controller.List());
+        Assert.Equal(
+            new[] { NotificationTypes.InternalApprovalRequested, NotificationTypes.ManagerReviewRequested },
+            managerList.Items.Select(n => n.Type).OrderBy(type => type));
+        Assert.Equal(2, managerList.UnreadCount);
     }
 
     private void SetRole(string role, int? userId = null)

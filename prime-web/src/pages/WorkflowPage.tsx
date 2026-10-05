@@ -29,6 +29,7 @@ export function WorkflowPage() {
     setPageSize,
     approveReview,
     declineReview,
+    approveManagerReview,
     approveInternal,
     requestRevision,
     refresh,
@@ -48,6 +49,9 @@ export function WorkflowPage() {
         break
       case 'decline-review':
         await declineReview(id, notes)
+        break
+      case 'approve-manager-review':
+        await approveManagerReview(id, notes)
         break
       case 'approve-internal':
         await approveInternal(id, notes)
@@ -136,7 +140,6 @@ export function WorkflowPage() {
           {items.length > 0 || loading ? (
             <WorkflowTable
               items={items}
-              tab={activeTab}
               onAction={(id, type) => setActionDialog({ id, type })}
               loading={loading}
             />

@@ -15,25 +15,13 @@ public static class RequisitionStatusService
             new TransitionRule(RequisitionStatus.PROCESSING, "req:review_action", "Manager"),
             new TransitionRule(RequisitionStatus.DECLINED, "req:review_action", "Manager"),
         },
-        [RequisitionStatus.PROCESSING] = new[]
-        {
-            new TransitionRule(RequisitionStatus.SUBMITTED, "req:request_submit", "User"),
-            new TransitionRule(RequisitionStatus.REVISE, "req:request_revision", "Manager"),
-        },
-        [RequisitionStatus.SUBMITTED] = new[]
-        {
-            new TransitionRule(RequisitionStatus.APPROVED, "req:approve_internal", "Manager"),
-            new TransitionRule(RequisitionStatus.REVISE, "req:request_revision", "Manager"),
-        },
-        [RequisitionStatus.APPROVED] = new[]
-        {
-            new TransitionRule(RequisitionStatus.WON, "req:mark_outcome", "User"),
-            new TransitionRule(RequisitionStatus.LOST, "req:mark_outcome", "User"),
-        },
-        [RequisitionStatus.REVISE] = new[]
-        {
-            new TransitionRule(RequisitionStatus.PROCESSING, "req:review_action", "Manager"),
-        },
+        [RequisitionStatus.PROCESSING] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.MANAGER_REVIEW] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.READY_FOR_APPROVAL] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.INTERNAL_APPROVAL] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.SUBMITTED] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.APPROVED] = Array.Empty<TransitionRule>(),
+        [RequisitionStatus.REVISE] = Array.Empty<TransitionRule>(),
         [RequisitionStatus.WON] = new[]
         {
             new TransitionRule(RequisitionStatus.ARCHIVE, "system:archive", "System"),

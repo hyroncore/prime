@@ -29,4 +29,9 @@ public static class NotificationTypes
     public const string Overdue = "Overdue";
     public const string SubmittedFollowUp = "SubmittedFollowUp";
     public const string ManagerInputRequested = "ManagerInputRequested";
+    public const string ManagerReviewRequested = "ManagerReviewRequested";
+    public const string ManagerReviewAccepted = "ManagerReviewAccepted";
+    public const string InternalApprovalRequested = "InternalApprovalRequested";
+    public const string InternalApprovalGranted = "InternalApprovalGranted";
+    public const string RequisitionRevisionRequested = "RequisitionRevisionRequested";
 }

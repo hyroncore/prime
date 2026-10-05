@@ -186,15 +186,25 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, notes }),
       }),
-    requestSignOff: (id: number, notes: string) =>
-      request<RequisitionDto>(`/requisitions/${id}/submit`, {
+    requestManagerReview: (id: number, notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/request-manager-review`, {
         method: 'POST',
         body: JSON.stringify({ notes }),
       }),
-    requestManagerInput: (id: number, notes: string) =>
-      request<RequisitionDto>(`/requisitions/${id}/request-manager-input`, {
+    requestInternalApproval: (id: number, notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/request-internal-approval`, {
         method: 'POST',
         body: JSON.stringify({ notes }),
+      }),
+    submitToClient: (id: number, notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/submit-to-client`, {
+        method: 'POST',
+        body: JSON.stringify({ notes }),
+      }),
+    markOutcome: (id: number, outcome: 'WON' | 'LOST', notes: string) =>
+      request<RequisitionDto>(`/requisitions/${id}/mark-outcome`, {
+        method: 'POST',
+        body: JSON.stringify({ outcome, notes }),
       }),
     update: (id: number, body: UpdateRequisitionRequest) =>
       request<RequisitionDto>(`/requisitions/${id}`, {
@@ -230,6 +240,11 @@ export const api = {
         request<RequisitionDto>(`/requisitions/${id}/review`, {
           method: 'POST',
           body: JSON.stringify({ action: 'decline', notes }),
+        }),
+      managerReview: (id: number, action: 'approve' | 'revise', notes: string) =>
+        request<RequisitionDto>(`/requisitions/${id}/manager-review`, {
+          method: 'POST',
+          body: JSON.stringify({ action, notes }),
         }),
       approveInternal: (id: number, notes: string) =>
         request<RequisitionDto>(`/requisitions/${id}/approve-internal`, {

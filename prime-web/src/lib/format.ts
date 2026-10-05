@@ -37,8 +37,23 @@ export const STATUS_META: Record<
     badgeClass:
       'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800',
   },
+  MANAGER_REVIEW: {
+    label: 'مراجعة إنجاز العمل',
+    badgeClass:
+      'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+  },
+  READY_FOR_APPROVAL: {
+    label: 'جاهز لطلب الاعتماد الداخلي',
+    badgeClass:
+      'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800',
+  },
+  INTERNAL_APPROVAL: {
+    label: 'بانتظار الاعتماد الداخلي',
+    badgeClass:
+      'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800',
+  },
   SUBMITTED: {
-    label: 'تم التسليم',
+    label: 'تم الإرسال للعميل',
     badgeClass:
       'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800',
   },
@@ -72,10 +87,13 @@ export const STATUS_OPTIONS = Object.entries(STATUS_META).map(([value, meta]) =>
 export const ALLOWED_TRANSITIONS: Record<RequisitionStatus, RequisitionStatus[]> = {
   NEW: ['REVIEW'],
   REVIEW: ['PROCESSING', 'DECLINED'],
-  PROCESSING: ['SUBMITTED'],
-  SUBMITTED: ['APPROVED', 'REVISE'],
-  APPROVED: ['WON', 'LOST'],
-  REVISE: ['REVIEW'],
+  PROCESSING: [],
+  MANAGER_REVIEW: [],
+  READY_FOR_APPROVAL: [],
+  INTERNAL_APPROVAL: [],
+  SUBMITTED: ['WON', 'LOST'],
+  APPROVED: [],
+  REVISE: [],
   DECLINED: [],
   WON: [],
   LOST: [],
@@ -87,6 +105,12 @@ export const AUDIT_ACTION_META: Record<string, { label: string; tone: string }> 
   Updated: { label: 'تعديل البيانات', tone: 'bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800' },
   SubmittedForSignOff: { label: 'إرسال الطلب لاعتماد المدير', tone: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
   ManagerInputRequested: { label: 'طلب مراجعة من المدير', tone: 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
+  SubmittedForManagerReview: { label: 'إرسال الطلب لمراجعة إنجاز العمل', tone: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  ManagerReviewAccepted: { label: 'قبول مراجعة إنجاز العمل', tone: 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' },
+  InternalApprovalRequested: { label: 'طلب اعتماد داخلي', tone: 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
+  InternallyApproved: { label: 'اعتماد داخلي', tone: 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' },
+  SubmittedToClient: { label: 'إرسال الطلب إلى العميل', tone: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+  RevisionRequested: { label: 'طلب تعديل', tone: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
 }
 
 export function formatDate(iso: string): string {

@@ -3,6 +3,9 @@ export type RequisitionStatus =
   | 'REVIEW'
   | 'DECLINED'
   | 'PROCESSING'
+  | 'MANAGER_REVIEW'
+  | 'READY_FOR_APPROVAL'
+  | 'INTERNAL_APPROVAL'
   | 'SUBMITTED'
   | 'APPROVED'
   | 'REVISE'
@@ -160,6 +163,11 @@ export interface DashboardStatsDto {
   newCount: number
   reviewCount: number
   processingCount: number
+  managerReviewCount: number
+  readyForApprovalCount: number
+  internalApprovalCount: number
+  approvedCount: number
+  reviseCount: number
   overdueCount: number
   submittedCount: number
   wonCount: number
@@ -279,7 +287,7 @@ export interface PendingSignOffDto {
   title: string
   plantName: string
   clientName: string
-  submittedAt: string
+  requestedAt: string
 }
 
 export interface TeamMemberStatsDto {

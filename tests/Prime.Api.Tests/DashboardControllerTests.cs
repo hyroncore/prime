@@ -89,7 +89,26 @@ public class DashboardControllerTests : IDisposable
 
         // Requisitions for sub1 (2)
         var req1 = new PurchaseRequisition { Identifier = "TP-01-0001", ExternalRef = "REF-1", PlantId = plant.Id, SectorCode = "01", Title = "Req 1", DueDate = DateTime.UtcNow.AddDays(5), Status = "REVIEW", CreatedById = 2, ReceivedAt = DateTime.UtcNow };
-        var req2 = new PurchaseRequisition { Identifier = "TP-01-0002", ExternalRef = "REF-2", PlantId = plant.Id, SectorCode = "01", Title = "Req 2", DueDate = DateTime.UtcNow.AddDays(10), Status = "SUBMITTED", CreatedById = 2, ReceivedAt = DateTime.UtcNow, SubmittedAt = DateTime.UtcNow };
+        var req2 = new PurchaseRequisition
+        {
+            Identifier = "TP-01-0002",
+            ExternalRef = "REF-2",
+            PlantId = plant.Id,
+            SectorCode = "01",
+            Title = "Req 2",
+            DueDate = DateTime.UtcNow.AddDays(10),
+            Status = "INTERNAL_APPROVAL",
+            CreatedById = 2,
+            ReceivedAt = DateTime.UtcNow,
+            AuditLogs =
+            {
+                new RequisitionAuditLog
+                {
+                    Action = "InternalApprovalRequested",
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-1),
+                }
+            }
+        };
         
         // Requisitions for sub2 (3)
         var req3 = new PurchaseRequisition { Identifier = "TP-01-0003", ExternalRef = "REF-3", PlantId = plant.Id, SectorCode = "01", Title = "Req 3", DueDate = DateTime.UtcNow.AddDays(3), Status = "REVIEW", CreatedById = 3, ReceivedAt = DateTime.UtcNow };
@@ -191,14 +210,14 @@ public class DashboardControllerTests : IDisposable
         Assert.NotNull(sub2Perf);
         Assert.DoesNotContain(dto.TeamPerformance, p => p.DisplayName == "Unrelated User");
 
-        // Open requests exclude separately reported submitted requests.
-        Assert.Equal(1, sub1Perf.OpenRequisitions);
-        Assert.Equal(1, sub1Perf.SubmittedCount);
+        // Internal approval is still an open request and has not yet been sent to the client.
+        Assert.Equal(2, sub1Perf.OpenRequisitions);
+        Assert.Equal(0, sub1Perf.SubmittedCount);
         Assert.Equal(1, sub1Perf.WonCount);
         Assert.Equal(100.0, sub1Perf.WinRate);
 
-        // Sub2: 1 REVIEW (req3), 0 SUBMITTED, 0 WON, 1 LOST = 0% win rate
-        Assert.Equal(1, sub2Perf.OpenRequisitions);
+        // Sub2: 1 REVIEW and 1 internally approved but not sent to client.
+        Assert.Equal(2, sub2Perf.OpenRequisitions);
         Assert.Equal(0, sub2Perf.SubmittedCount);
         Assert.Equal(0, sub2Perf.WonCount);
         Assert.Equal(0.0, sub2Perf.WinRate);
@@ -270,15 +289,15 @@ public class DashboardControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetManagerStats_PendingSignOffsSortedBySubmittedAt()
+    public async Task GetManagerStats_PendingSignOffsSortedByRequestDate()
     {
         var result = await _controller.GetManagerStats();
         var dto = Dto(result);
 
-        var submittedDates = dto.PendingSignOffs.Select(r => r.SubmittedAt).ToList();
-        var sorted = submittedDates.OrderBy(d => d).ToList();
+        var requestedDates = dto.PendingSignOffs.Select(r => r.RequestedAt).ToList();
+        var sorted = requestedDates.OrderBy(d => d).ToList();
         
-        Assert.Equal(sorted, submittedDates);
+        Assert.Equal(sorted, requestedDates);
     }
 
     [Fact]
@@ -288,8 +307,8 @@ public class DashboardControllerTests : IDisposable
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var counts = Assert.IsType<WorkflowCountsDto>(ok.Value);
-        Assert.Equal(3, counts.Review);
+        Assert.Equal(2, counts.Review);
         Assert.Equal(1, counts.Internal);
-        Assert.Equal(1, counts.Archive);
+        Assert.Equal(2, counts.Archive);
     }
 }

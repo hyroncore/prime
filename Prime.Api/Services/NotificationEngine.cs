@@ -24,6 +24,10 @@ public class NotificationEngine
             nameof(RequisitionStatus.NEW),
             nameof(RequisitionStatus.REVIEW),
             nameof(RequisitionStatus.PROCESSING),
+            nameof(RequisitionStatus.MANAGER_REVIEW),
+            nameof(RequisitionStatus.READY_FOR_APPROVAL),
+            nameof(RequisitionStatus.INTERNAL_APPROVAL),
+            nameof(RequisitionStatus.APPROVED),
             nameof(RequisitionStatus.SUBMITTED)
         };
 
@@ -40,7 +44,7 @@ public class NotificationEngine
             .ToListAsync(ct);
 
         var submittedLogs = await db.RequisitionAuditLogs
-            .Where(a => a.Action == "StatusChanged" && a.StatusTo == nameof(RequisitionStatus.SUBMITTED))
+            .Where(a => a.Action == "SubmittedToClient" && a.StatusTo == nameof(RequisitionStatus.SUBMITTED))
             .GroupBy(a => a.RequisitionId)
             .Select(g => new { RequisitionId = g.Key, At = g.Max(x => x.CreatedAt) })
             .ToDictionaryAsync(x => x.RequisitionId, x => x.At, ct);
@@ -48,7 +52,9 @@ public class NotificationEngine
         var added = 0;
         foreach (var requisition in requisitions)
         {
-            var submittedAt = submittedLogs.TryGetValue(requisition.Id, out var at) ? at : requisition.CreatedAt;
+            var submittedAt = submittedLogs.TryGetValue(requisition.Id, out var at)
+                ? at
+                : requisition.SubmittedAt ?? requisition.CreatedAt;
 
             var candidates = NotificationRules.Evaluate(
                 requisition,

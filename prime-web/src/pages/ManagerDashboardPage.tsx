@@ -197,7 +197,7 @@ export function ManagerDashboardPage() {
       description: 'طلبات تحتاج إلى قرار',
     },
     {
-      title: 'بانتظار الاعتماد النهائي',
+      title: 'بانتظار الاعتماد الداخلي',
       value: managerStats.pendingSignOff,
       description: 'طلبات تمت مراجعتها',
     },
@@ -331,9 +331,9 @@ export function ManagerDashboardPage() {
                     title={request.title}
                     clientName={request.clientName}
                     plantName={request.plantName}
-                    status="SUBMITTED"
-                    date={formatDateShort(request.submittedAt)}
-                    dateLabel="تاريخ التقديم"
+                    status="INTERNAL_APPROVAL"
+                    date={formatDateShort(request.requestedAt)}
+                    dateLabel="تاريخ طلب الاعتماد"
                     onOpen={openDrawer}
                   />
                 ))}

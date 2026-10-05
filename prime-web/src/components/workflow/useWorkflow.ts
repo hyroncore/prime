@@ -24,6 +24,7 @@ interface UseWorkflowReturn {
   setPageSize: (size: number) => void
   approveReview: (id: number, notes: string) => Promise<void>
   declineReview: (id: number, notes: string) => Promise<void>
+  approveManagerReview: (id: number, notes: string) => Promise<void>
   approveInternal: (id: number, notes: string) => Promise<void>
   requestRevision: (id: number, notes: string) => Promise<void>
   refresh: () => Promise<void>
@@ -119,10 +120,10 @@ export function useWorkflow(): UseWorkflowReturn {
         to: filters.to ?? undefined,
         status:
           activeTab === 'review'
-            ? 'REVIEW'
+            ? 'REVIEW,MANAGER_REVIEW'
             : activeTab === 'internal'
-              ? 'SUBMITTED'
-              : 'DECLINED,APPROVED,REVISE',
+              ? 'INTERNAL_APPROVAL'
+              : 'DECLINED,SUBMITTED,WON,LOST',
       })
       if (sequence !== listSequence.current) return
       setTotal(response.length)
@@ -234,25 +235,31 @@ export function useWorkflow(): UseWorkflowReturn {
     })
 
   const handleApproveReview = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'PROCESSING', notes)
+    await api.requisitions.workflow.approveReview(id, notes)
     actionToast('تمت الموافقة على المراجعة')
     await refresh()
   }
 
   const handleDeclineReview = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'DECLINED', notes)
+    await api.requisitions.workflow.declineReview(id, notes)
     actionToast('تم رفض المراجعة')
     await refresh()
   }
 
+  const handleApproveManagerReview = async (id: number, notes: string) => {
+    await api.requisitions.workflow.managerReview(id, 'approve', notes)
+    actionToast('تم قبول مراجعة إنجاز العمل')
+    await refresh()
+  }
+
   const handleApproveInternal = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'APPROVED', notes)
+    await api.requisitions.workflow.approveInternal(id, notes)
     actionToast('تم الاعتماد الداخلي')
     await refresh()
   }
 
   const handleRequestRevision = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'REVISE', notes)
+    await api.requisitions.workflow.requestRevision(id, notes)
     actionToast('تم طلب التعديل')
     await refresh()
   }
@@ -275,6 +282,7 @@ export function useWorkflow(): UseWorkflowReturn {
     setPageSize: handleSetPageSize,
     approveReview: handleApproveReview,
     declineReview: handleDeclineReview,
+    approveManagerReview: handleApproveManagerReview,
     approveInternal: handleApproveInternal,
     requestRevision: handleRequestRevision,
     refresh,

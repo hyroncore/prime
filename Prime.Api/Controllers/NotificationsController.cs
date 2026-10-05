@@ -68,8 +68,7 @@ public class NotificationsController : ControllerBase
             return NotFound();
         }
 
-        if (notification.Type == NotificationTypes.ManagerInputRequested &&
-            !CanSeeManagerRequest(notification))
+        if (!CanSeeNotification(notification))
         {
             return Forbid();
         }
@@ -103,16 +102,57 @@ public class NotificationsController : ControllerBase
             int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var managerId))
         {
             return query.Where(n =>
-                n.Type != NotificationTypes.ManagerInputRequested ||
-                (n.Requisition != null &&
-                 n.Requisition.CreatedBy != null &&
-                 n.Requisition.CreatedBy.ManagerId == managerId));
+                (
+                    (n.Type != NotificationTypes.ManagerInputRequested &&
+                     n.Type != NotificationTypes.ManagerReviewRequested &&
+                     n.Type != NotificationTypes.InternalApprovalRequested &&
+                     n.Type != NotificationTypes.ManagerReviewAccepted &&
+                     n.Type != NotificationTypes.InternalApprovalGranted &&
+                     n.Type != NotificationTypes.RequisitionRevisionRequested) ||
+                    (
+                        (n.Type == NotificationTypes.ManagerInputRequested ||
+                         n.Type == NotificationTypes.ManagerReviewRequested ||
+                         n.Type == NotificationTypes.InternalApprovalRequested) &&
+                        n.Requisition != null &&
+                        n.Requisition.CreatedBy != null &&
+                        n.Requisition.CreatedBy.ManagerId == managerId
+                    )
+                ));
         }
 
-        return query.Where(n => n.Type != NotificationTypes.ManagerInputRequested);
+        if (user is not null &&
+            int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return query.Where(n =>
+                n.Type != NotificationTypes.ManagerInputRequested &&
+                n.Type != NotificationTypes.ManagerReviewRequested &&
+                n.Type != NotificationTypes.InternalApprovalRequested &&
+                ((n.Type != NotificationTypes.ManagerReviewAccepted &&
+                  n.Type != NotificationTypes.InternalApprovalGranted &&
+                  n.Type != NotificationTypes.RequisitionRevisionRequested) ||
+                 (n.Requisition != null && n.Requisition.CreatedById == userId)));
+        }
+
+        return query.Where(n =>
+            n.Type != NotificationTypes.ManagerInputRequested &&
+            n.Type != NotificationTypes.ManagerReviewRequested &&
+            n.Type != NotificationTypes.InternalApprovalRequested &&
+            n.Type != NotificationTypes.ManagerReviewAccepted &&
+            n.Type != NotificationTypes.InternalApprovalGranted &&
+            n.Type != NotificationTypes.RequisitionRevisionRequested);
     }
 
-    private bool CanSeeManagerRequest(Notification notification)
+    private static bool IsManagerNotification(string type) =>
+        type == NotificationTypes.ManagerInputRequested ||
+        type == NotificationTypes.ManagerReviewRequested ||
+        type == NotificationTypes.InternalApprovalRequested;
+
+    private static bool IsUserNotification(string type) =>
+        type == NotificationTypes.ManagerReviewAccepted ||
+        type == NotificationTypes.InternalApprovalGranted ||
+        type == NotificationTypes.RequisitionRevisionRequested;
+
+    private bool CanSeeNotification(Notification notification)
     {
         var user = ControllerContext.HttpContext?.User;
         if (user?.IsInRole(UserRoles.Admin) == true)
@@ -120,8 +160,19 @@ public class NotificationsController : ControllerBase
             return true;
         }
 
-        return user?.IsInRole(UserRoles.Manager) == true &&
-            int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var managerId) &&
-            notification.Requisition?.CreatedBy?.ManagerId == managerId;
+        if (IsManagerNotification(notification.Type))
+        {
+            return user?.IsInRole(UserRoles.Manager) == true &&
+                int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var managerId) &&
+                notification.Requisition?.CreatedBy?.ManagerId == managerId;
+        }
+
+        if (IsUserNotification(notification.Type))
+        {
+            return int.TryParse(user?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) &&
+                notification.Requisition?.CreatedById == userId;
+        }
+
+        return true;
     }
 }

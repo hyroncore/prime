@@ -13,21 +13,17 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { formatDateShort, getUrgencyMeta } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 import type { RequisitionDto, RequisitionStatus } from '@/lib/types'
-import { TabKey } from './workflowTypes'
+import type { WorkflowActionType } from './workflowTypes'
 
 interface WorkflowTableProps {
   items: RequisitionDto[]
-  tab: TabKey
-  onAction: (
-    id: number,
-    action: 'approve-review' | 'decline-review' | 'approve-internal' | 'request-revision',
-  ) => void
+  onAction: (id: number, action: WorkflowActionType) => void
   loading: boolean
 }
 
 const headers = ['المعرف', 'الطلب', 'تاريخ الاستحقاق', 'الحالة', 'الإجراءات'] as const
 
-export function WorkflowTable({ items, tab, onAction, loading }: WorkflowTableProps) {
+export function WorkflowTable({ items, onAction, loading }: WorkflowTableProps) {
   const openDrawer = useAppStore((state) => state.openDrawer)
 
   if (loading) {
@@ -68,7 +64,10 @@ export function WorkflowTable({ items, tab, onAction, loading }: WorkflowTablePr
       </TableHeader>
       <TableBody>
         {items.map((request) => {
-          const needsDecision = request.status === 'REVIEW' || request.status === 'SUBMITTED'
+          const needsDecision =
+            request.status === 'REVIEW' ||
+            request.status === 'MANAGER_REVIEW' ||
+            request.status === 'INTERNAL_APPROVAL'
           const daysLeft = Math.ceil(
             (new Date(request.dueDate).getTime() - Date.now()) / 86_400_000,
           )
@@ -109,7 +108,7 @@ export function WorkflowTable({ items, tab, onAction, loading }: WorkflowTablePr
                 <StatusBadge status={request.status as RequisitionStatus} />
               </TableCell>
               <TableCell>
-                {tab === 'review' && request.status === 'REVIEW' ? (
+                {request.status === 'REVIEW' ? (
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -128,7 +127,26 @@ export function WorkflowTable({ items, tab, onAction, loading }: WorkflowTablePr
                       رفض
                     </Button>
                   </div>
-                ) : tab === 'internal' && request.status === 'SUBMITTED' ? (
+                ) : request.status === 'MANAGER_REVIEW' ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => onAction(request.id, 'approve-manager-review')}
+                      className="h-10 text-xs font-semibold"
+                    >
+                      قبول المراجعة
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => onAction(request.id, 'request-revision')}
+                      className="h-10 text-xs font-semibold"
+                    >
+                      طلب تعديل
+                    </Button>
+                  </div>
+                ) : request.status === 'INTERNAL_APPROVAL' ? (
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"

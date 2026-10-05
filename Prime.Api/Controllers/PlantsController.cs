@@ -34,7 +34,13 @@ public class PlantsController : ControllerBase
         {
             nameof(RequisitionStatus.NEW),
             nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING)
+            nameof(RequisitionStatus.PROCESSING),
+            nameof(RequisitionStatus.MANAGER_REVIEW),
+            nameof(RequisitionStatus.READY_FOR_APPROVAL),
+            nameof(RequisitionStatus.INTERNAL_APPROVAL),
+            nameof(RequisitionStatus.APPROVED),
+            nameof(RequisitionStatus.SUBMITTED),
+            nameof(RequisitionStatus.REVISE)
         };
 
         var result = plants.Select(p =>
@@ -81,7 +87,13 @@ public class PlantsController : ControllerBase
         {
             nameof(RequisitionStatus.NEW),
             nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING)
+            nameof(RequisitionStatus.PROCESSING),
+            nameof(RequisitionStatus.MANAGER_REVIEW),
+            nameof(RequisitionStatus.READY_FOR_APPROVAL),
+            nameof(RequisitionStatus.INTERNAL_APPROVAL),
+            nameof(RequisitionStatus.APPROVED),
+            nameof(RequisitionStatus.SUBMITTED),
+            nameof(RequisitionStatus.REVISE)
         };
 
         var wonCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));

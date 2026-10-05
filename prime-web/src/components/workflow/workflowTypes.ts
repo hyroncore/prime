@@ -10,6 +10,7 @@ export type TabConfig = {
 export type WorkflowActionType = 
   | 'approve-review' 
   | 'decline-review' 
+  | 'approve-manager-review'
   | 'approve-internal' 
   | 'request-revision';
 
@@ -38,19 +39,19 @@ export const TABS: TabConfig[] = [
   {
     key: 'review',
     label: 'مراجعة المدير',
-    statuses: ['REVIEW'],
-    actions: ['approve-review', 'decline-review'],
+    statuses: ['REVIEW', 'MANAGER_REVIEW'],
+    actions: ['approve-review', 'decline-review', 'approve-manager-review', 'request-revision'],
   },
   {
     key: 'internal',
     label: 'اعتماد داخلي',
-    statuses: ['SUBMITTED'],
+    statuses: ['INTERNAL_APPROVAL'],
     actions: ['approve-internal', 'request-revision'],
   },
   {
     key: 'archive',
     label: 'الأرشيف',
-    statuses: ['DECLINED', 'APPROVED', 'REVISE'],
+    statuses: ['DECLINED', 'SUBMITTED', 'WON', 'LOST'],
     actions: [],
   },
 ];
@@ -58,6 +59,7 @@ export const TABS: TabConfig[] = [
 export const ACTION_LABELS: Record<WorkflowActionType, { label: string; variant: 'default' | 'destructive' | 'outline' }> = {
   'approve-review': { label: 'موافقة', variant: 'default' },
   'decline-review': { label: 'رفض', variant: 'destructive' },
+  'approve-manager-review': { label: 'قبول المراجعة', variant: 'default' },
   'approve-internal': { label: 'اعتماد', variant: 'default' },
   'request-revision': { label: 'طلب تعديل', variant: 'outline' },
 };
