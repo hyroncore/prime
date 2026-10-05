@@ -280,4 +280,16 @@ public class DashboardControllerTests : IDisposable
         
         Assert.Equal(sorted, submittedDates);
     }
+
+    [Fact]
+    public async Task GetWorkflowCounts_ReturnsCountsForEachWorkflowTab()
+    {
+        var result = await _controller.GetWorkflowCounts();
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var counts = Assert.IsType<WorkflowCountsDto>(ok.Value);
+        Assert.Equal(3, counts.Review);
+        Assert.Equal(1, counts.Internal);
+        Assert.Equal(1, counts.Archive);
+    }
 }

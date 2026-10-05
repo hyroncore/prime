@@ -419,7 +419,10 @@ public class DashboardController : ControllerBase
                 .CountAsync();
 
             var archiveCount = await _db.PurchaseRequisitions
-                .Where(r => new[] { "DECLINED", "APPROVED", "REVISE" }.Contains(r.Status))
+                .Where(r =>
+                    r.Status == "DECLINED" ||
+                    r.Status == "APPROVED" ||
+                    r.Status == "REVISE")
                 .CountAsync();
 
             return Ok(new WorkflowCountsDto(reviewCount, submittedCount, archiveCount));
