@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -23,6 +24,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
 
 export function ClientsPage() {
+  const navigate = useNavigate()
   const plants = useAppStore((s) => s.plants)
   const clients = useAppStore((s) => s.clients)
   const loading = useAppStore((s) => s.loading)
@@ -103,7 +105,7 @@ export function ClientsPage() {
 
   if (loading && plants.length === 0) {
     return (
-      <div className="space-y-10">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <Skeleton className="h-8 w-48 rounded-lg mb-2" />
@@ -111,13 +113,13 @@ export function ClientsPage() {
           </div>
           <Skeleton className="h-9 w-32 rounded-lg" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i}>
-              <Skeleton className="h-3 w-24 rounded mb-3" />
-              <Skeleton className="h-9 w-32 rounded mb-1" />
-              <Skeleton className="h-3 w-20 rounded" />
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-5">
+              <Skeleton className="mb-3 h-3 w-24 rounded" />
+              <Skeleton className="mb-1 h-8 w-32 rounded" />
+              <Skeleton className="h-3 w-28 rounded" />
+            </Card>
           ))}
         </div>
         <Skeleton className="h-9 w-full max-w-md rounded-lg" />
@@ -135,40 +137,37 @@ export function ClientsPage() {
   }
 
   return (
-    <div dir="rtl" className="space-y-10">
-      <div className="flex items-center justify-between">
+    <div dir="rtl" className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight">العملاء</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             المصانع المتعامل معها والجهة المرتبطة بها لكل عميل
           </p>
         </div>
         {canManageClients && (
           <Button
-            onClick={() => openPlantDialog()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+            onClick={() => navigate('/clients/new')}
+            className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
           >
-            + إضافة عميل جديد
+            إضافة عميل جديد
           </Button>
         )}
-      </div>
+      </header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-8">
-        {kpis.map((stat, i) => (
-          <div
-            key={i}
-            className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0"
-          >
-            <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
+      <section aria-label="ملخص العملاء" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {kpis.map((stat) => (
+          <Card key={stat.title} className="p-5">
+            <p className="text-xs font-bold tracking-wide text-muted-foreground">
               {stat.title}
             </p>
-            <p className="mt-2 text-4xl font-black tabular-nums tracking-tight truncate">
+            <p className="mt-2 text-2xl font-black tabular-nums tracking-tight">
               {stat.value}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground font-medium">{stat.subtitle}</p>
-          </div>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{stat.subtitle}</p>
+          </Card>
         ))}
-      </div>
+      </section>
 
       {clientFilter && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
@@ -177,36 +176,42 @@ export function ClientsPage() {
           </p>
           <button
             onClick={() => setSearchParams({})}
-            className="text-xs font-semibold text-red-700 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+            className="min-h-11 rounded-md px-2 text-xs font-semibold text-red-700 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-red-400 dark:hover:text-red-300"
           >
             إزالة التصفية
           </button>
         </div>
       )}
 
-      <Input
-        placeholder="بحث بالاسم أو الرمز أو الجهة..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="h-9 text-sm max-w-md"
-      />
+      <div className="space-y-2">
+        <label htmlFor="client-search" className="text-sm font-bold">
+          البحث في العملاء
+        </label>
+        <Input
+          id="client-search"
+          placeholder="بحث بالاسم أو الرمز أو الجهة..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="h-11 w-full max-w-md text-sm"
+        />
+      </div>
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <p className="text-base font-black text-foreground">
             {clientFilter || searchTerm.trim() ? 'لا توجد نتائج مطابقة' : 'لا يوجد عملاء بعد'}
           </p>
-          <p className="text-sm text-muted-foreground max-w-sm">
+          <p className="max-w-sm text-sm text-muted-foreground">
             {clientFilter || searchTerm.trim()
               ? 'جرّب تعديل البحث أو إزالة تصفية الجهة'
               : 'أضف أول عميل لبدء تسجيل طلبات الشراء الخاصة به'}
           </p>
           {(!clientFilter && !searchTerm.trim() && canManageClients) && (
             <Button
-              onClick={() => openPlantDialog()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+              onClick={() => navigate('/clients/new')}
+              className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
             >
-              + إضافة عميل جديد
+              إضافة عميل جديد
             </Button>
           )}
           {(clientFilter || searchTerm.trim()) && (
@@ -215,83 +220,83 @@ export function ClientsPage() {
                 setSearchTerm('')
                 setSearchParams({})
               }}
-              className="rounded-lg border border-border px-4 py-2 text-xs font-bold transition-colors hover:bg-muted"
+              className="min-h-11 rounded-lg border border-border px-4 py-2 text-xs font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               مسح التصفية
             </button>
           )}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-border hover:bg-transparent">
-              <TableHead className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
-                العميل
-              </TableHead>
-              <TableHead className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
-                الجهة / الشركة
-              </TableHead>
-              <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
-                الطلبات المفتوحة
-              </TableHead>
-              <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
-                إجمالي الطلبات
-              </TableHead>
-              <TableHead className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
-                إجراءات
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((plant) => (
-              <TableRow
-                key={plant.id}
-                className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-              >
-                <TableCell className="px-5 py-3.5">
-                  <span className="text-sm font-bold">{plant.plantName}</span>
-                  <span className="mr-2 font-mono text-[11px] font-bold text-muted-foreground" dir="ltr">
-                    {plant.shortCode}
-                  </span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5">
-                  <span className="text-sm font-semibold">{plant.clientName}</span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5 text-center">
-                  <span className="text-sm font-black tabular-nums text-primary">
-                    {plant.openRequisitions}
-                  </span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5 text-center">
-                  <span className="text-sm font-bold tabular-nums">{plant.totalRequisitions}</span>
-                </TableCell>
-                <TableCell className="px-5 py-3.5 text-center">
-                  <div className="flex items-center justify-center gap-3">
-                    {canManageClients && (
-                      <button
-                        onClick={() => openPlantDialog(plant)}
-                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        تعديل
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          setDeleteTarget(plant.id)
-                          setDeleteError(null)
-                        }}
-                        className="text-xs font-semibold text-red-700 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                      >
-                        حذف
-                      </button>
-                    )}
-                  </div>
-                </TableCell>
+        <Card className="overflow-hidden">
+          <Table className="min-w-[760px]">
+            <caption className="sr-only">قائمة العملاء والجهات وعدد طلبات الشراء المرتبطة</caption>
+            <TableHeader>
+              <TableRow className="border-b border-border hover:bg-transparent">
+                <TableHead scope="col" className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
+                  العميل
+                </TableHead>
+                <TableHead scope="col" className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
+                  الجهة / الشركة
+                </TableHead>
+                <TableHead scope="col" className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                  الطلبات المفتوحة
+                </TableHead>
+                <TableHead scope="col" className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                  إجمالي الطلبات
+                </TableHead>
+                <TableHead scope="col" className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
+                  إجراءات
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((plant) => (
+                <TableRow key={plant.id}>
+                  <TableCell className="px-5 py-3.5">
+                    <span className="text-sm font-bold">{plant.plantName}</span>
+                    <span className="ms-2 font-mono text-[11px] font-bold text-muted-foreground" dir="ltr">
+                      {plant.shortCode}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5">
+                    <span className="text-sm font-semibold">{plant.clientName}</span>
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 text-center">
+                    <span className="text-sm font-black tabular-nums text-primary">
+                      {plant.openRequisitions}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 text-center">
+                    <span className="text-sm font-bold tabular-nums">{plant.totalRequisitions}</span>
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 text-center">
+                    <div className="flex items-center justify-center gap-3">
+                      {canManageClients && (
+                        <button
+                          onClick={() => openPlantDialog(plant)}
+                          className="min-h-11 px-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          تعديل
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(plant.id)
+                            setDeleteError(null)
+                          }}
+                          className="min-h-11 px-2 text-xs font-semibold text-red-700 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          حذف
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>

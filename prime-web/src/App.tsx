@@ -21,6 +21,7 @@ const RequisitionDetailPage = lazy(() => import('@/pages/RequisitionDetailPage')
 const RequisitionEditPage = lazy(() => import('@/pages/RequisitionEditPage').then(m => ({ default: m.RequisitionEditPage })))
 const RequisitionPrintPage = lazy(() => import('@/pages/RequisitionPrintPage').then(m => ({ default: m.RequisitionPrintPage })))
 const ClientsPage = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })))
+const NewClientPage = lazy(() => import('@/pages/clients/NewClientPage').then(m => ({ default: m.NewClientPage })))
 const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m.UsersPage })))
 const UserFormPage = lazy(() => import('@/pages/UserFormPage').then(m => ({ default: m.UserFormPage })))
 const NewUserPage = lazy(() => import('@/pages/users/NewUserPage').then(m => ({ default: m.NewUserPage })))
@@ -178,6 +179,14 @@ export default function App() {
                 <Route path="/requisitions/:id/edit" element={<Suspense fallback={<PageSkeleton />}> <RequisitionEditPage /> </Suspense>} />
                 <Route path="/requisitions/:id/print" element={<Suspense fallback={<PageSkeleton />}> <RequisitionPrintPage /> </Suspense>} />
                 <Route path="/clients" element={<Suspense fallback={<PageSkeleton />}> <ClientsPage /> </Suspense>} />
+                <Route
+                  path="/clients/new"
+                  element={
+                    <RequireManager>
+                      <Suspense fallback={<PageSkeleton />}> <NewClientPage /> </Suspense>
+                    </RequireManager>
+                  }
+                />
                 <Route
                   path="/users"
                   element={
