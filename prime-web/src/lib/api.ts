@@ -4,9 +4,7 @@ import type {
   BackupHistoryDto,
   ChangePasswordRequest,
   ClientDto,
-  CompanyDto,
   CreateClientRequest,
-  CreateCompanyRequest,
   CreateRequisitionRequest,
   CreateUserRequest,
   DashboardStatsDto,
@@ -22,7 +20,6 @@ import type {
   SectorDto,
   SystemHealthDto,
   UpdateClientRequest,
-  UpdateCompanyRequest,
   UpdatePlantRequest,
   UpdatePermissionsRequest,
   UpdateRequisitionRequest,
@@ -304,21 +301,4 @@ export const api = {
     myPermissions: () => request<string[]>('/permissions/my-permissions'),
   },
 
-  companies: {
-    list: () => request<CompanyDto[]>('/companies'),
-    create: (body: CreateCompanyRequest) =>
-      request<CompanyDto>('/companies', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
-    update: (id: number, body: UpdateCompanyRequest) =>
-      request<CompanyDto>(`/companies/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(body),
-      }),
-    remove: (id: number) =>
-      request<void>(`/companies/${id}`, {
-        method: 'DELETE',
-      }),
-  },
 }

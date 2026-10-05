@@ -9,7 +9,6 @@ public class PrimeDbContext : DbContext
     {
     }
 
-    public DbSet<Company> Companies => Set<Company>();
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Plant> Plants => Set<Plant>();
     public DbSet<RequisitionSequence> RequisitionSequences => Set<RequisitionSequence>();
@@ -24,14 +23,6 @@ public class PrimeDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Company>(entity =>
-        {
-            entity.Property(c => c.Name).IsRequired();
-            entity.Property(c => c.Code).IsRequired().HasMaxLength(20);
-            entity.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            entity.HasIndex(c => c.Code).IsUnique();
-        });
-
         modelBuilder.Entity<Client>(entity =>
         {
             entity.Property(c => c.Name).IsRequired();
@@ -39,16 +30,6 @@ public class PrimeDbContext : DbContext
             entity.Property(c => c.Type).HasMaxLength(100);
             entity.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.HasIndex(c => c.Code).IsUnique();
-
-            entity.HasOne(c => c.Company)
-                  .WithMany(c => c.Clients)
-                  .HasForeignKey(c => c.CompanyId)
-                  .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasOne(c => c.CreatedByCompany)
-                  .WithMany()
-                  .HasForeignKey(c => c.CreatedByCompanyId)
-                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(c => c.CreatedByUser)
                   .WithMany()
@@ -66,10 +47,6 @@ public class PrimeDbContext : DbContext
                   .HasForeignKey(p => p.ClientId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(p => p.Company)
-                  .WithMany(c => c.Plants)
-                  .HasForeignKey(p => p.CompanyId)
-                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<RequisitionSequence>(entity =>
@@ -93,11 +70,6 @@ public class PrimeDbContext : DbContext
                   .WithMany(p => p.Requisitions)
                   .HasForeignKey(r => r.PlantId)
                   .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(r => r.Company)
-                  .WithMany(c => c.Requisitions)
-                  .HasForeignKey(r => r.CompanyId)
-                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasMany(r => r.AuditLogs)
                   .WithOne(a => a.Requisition)
@@ -192,10 +164,6 @@ public class PrimeDbContext : DbContext
                   .HasForeignKey(u => u.ManagerId)
                   .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasOne(u => u.Company)
-                  .WithMany(c => c.Users)
-                  .HasForeignKey(u => u.CompanyId)
-                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Permission>(entity =>

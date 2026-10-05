@@ -20,15 +20,8 @@ public class Client
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Creator tracking (Admin only visibility)
-    public int? CreatedByCompanyId { get; set; }
-    public Company? CreatedByCompany { get; set; }
     public int? CreatedByUserId { get; set; }
     public AppUser? CreatedByUser { get; set; }
-
-    // Company association (for multi-tenancy)
-    public int? CompanyId { get; set; }
-    public Company? Company { get; set; }
 
     public List<Plant> Plants { get; set; } = new();
 }

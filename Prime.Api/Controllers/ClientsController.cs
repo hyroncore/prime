@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
-using Prime.Api.Services;
 using System.Security.Claims;
 
 namespace Prime.Api.Controllers;
@@ -14,12 +13,10 @@ namespace Prime.Api.Controllers;
 public class ClientsController : ControllerBase
 {
     private readonly PrimeDbContext _db;
-    private readonly MultiTenantService _multiTenant;
 
-    public ClientsController(PrimeDbContext db, MultiTenantService multiTenant)
+    public ClientsController(PrimeDbContext db)
     {
         _db = db;
-        _multiTenant = multiTenant;
     }
 
     [HttpGet]
@@ -28,8 +25,6 @@ public class ClientsController : ControllerBase
         var query = _db.Clients
             .Include(c => c.Plants)
             .AsQueryable();
-
-        query = _multiTenant.ApplyCompanyScope(query);
 
         var clients = await query.ToListAsync();
 
@@ -91,12 +86,6 @@ public class ClientsController : ControllerBase
             return BadRequest(new { message = "يوجد جهة بهذا الكود مسبقاً." });
         }
 
-        var companyIdClaim = User.FindFirst("company_id")?.Value;
-        if (!int.TryParse(companyIdClaim, out var companyId))
-        {
-            return BadRequest(new { message = "غير مصرح - يرجى تسجيل الدخول كمسؤول شركة" });
-        }
-
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         int.TryParse(userIdClaim, out var userId);
 
@@ -107,8 +96,6 @@ public class ClientsController : ControllerBase
             Type = request.Type?.Trim(),
             PrimaryContactName = request.PrimaryContactName?.Trim(),
             PrimaryContactPhone = request.PrimaryContactPhone?.Trim(),
-            CompanyId = companyId,
-            CreatedByCompanyId = companyId,
             CreatedByUserId = userId > 0 ? userId : null
         };
 

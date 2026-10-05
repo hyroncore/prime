@@ -41,11 +41,11 @@ export function ClientsPage() {
   }, [clients.length, plants.length, fetchClients, fetchPlants])
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const companyParam = searchParams.get('company')
-  const companyFilter = useMemo(() => {
-    if (!companyParam) return null
-    return clients.find((c) => c.id === Number(companyParam)) ?? null
-  }, [clients, companyParam])
+  const clientParam = searchParams.get('client')
+  const clientFilter = useMemo(() => {
+    if (!clientParam) return null
+    return clients.find((c) => c.id === Number(clientParam)) ?? null
+  }, [clients, clientParam])
 
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
@@ -53,19 +53,19 @@ export function ClientsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
-    const companyBased = companyFilter ? plants.filter((p) => p.clientId === companyFilter.id) : plants
+    const clientPlants = clientFilter ? plants.filter((p) => p.clientId === clientFilter.id) : plants
     const term = searchTerm.trim()
-    if (!term) return companyBased
-    return companyBased.filter(
+    if (!term) return clientPlants
+    return clientPlants.filter(
       (p) =>
         p.plantName.includes(term) ||
         p.shortCode.toLowerCase().includes(term.toLowerCase()) ||
         p.clientName.includes(term)
     )
-  }, [plants, companyFilter, searchTerm])
+  }, [plants, clientFilter, searchTerm])
 
   const kpis = useMemo(() => {
-    const scope = companyFilter ? plants.filter((p) => p.clientId === companyFilter.id) : plants
+    const scope = clientFilter ? plants.filter((p) => p.clientId === clientFilter.id) : plants
     const total = scope.length
     const active = scope.filter((p) => p.openRequisitions > 0).length
     const openTotal = scope.reduce((sum, p) => sum + p.openRequisitions, 0)
@@ -74,7 +74,7 @@ export function ClientsPage() {
       {
         title: 'إجمالي العملاء',
         value: String(total),
-        subtitle: companyFilter ? 'ضمن هذه الجهة' : 'عميل مسجل في النظام',
+        subtitle: clientFilter ? 'ضمن هذه الجهة' : 'عميل مسجل في النظام',
       },
       { title: 'العملاء النشطون', value: String(active), subtitle: 'لديهم طلبات مفتوحة حالياً' },
       {
@@ -83,7 +83,7 @@ export function ClientsPage() {
         subtitle: 'مجموع طلبات قيد المراجعة أو المعالجة',
       },
     ]
-  }, [plants, companyFilter])
+  }, [plants, clientFilter])
 
   const handleDelete = async () => {
     if (deleteTarget == null) return
@@ -170,10 +170,10 @@ export function ClientsPage() {
         ))}
       </div>
 
-      {companyFilter && (
+      {clientFilter && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
           <p className="text-xs font-bold">
-            عرض عملاء الجهة: <span className="text-primary">{companyFilter.name}</span>
+            عرض عملاء الجهة: <span className="text-primary">{clientFilter.name}</span>
           </p>
           <button
             onClick={() => setSearchParams({})}
@@ -194,14 +194,14 @@ export function ClientsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <p className="text-base font-black text-foreground">
-            {companyFilter || searchTerm.trim() ? 'لا توجد نتائج مطابقة' : 'لا يوجد عملاء بعد'}
+            {clientFilter || searchTerm.trim() ? 'لا توجد نتائج مطابقة' : 'لا يوجد عملاء بعد'}
           </p>
           <p className="text-sm text-muted-foreground max-w-sm">
-            {companyFilter || searchTerm.trim()
+            {clientFilter || searchTerm.trim()
               ? 'جرّب تعديل البحث أو إزالة تصفية الجهة'
               : 'أضف أول عميل لبدء تسجيل طلبات الشراء الخاصة به'}
           </p>
-          {(!companyFilter && !searchTerm.trim() && canManageClients) && (
+          {(!clientFilter && !searchTerm.trim() && canManageClients) && (
             <Button
               onClick={() => openPlantDialog()}
               className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
@@ -209,7 +209,7 @@ export function ClientsPage() {
               + إضافة عميل جديد
             </Button>
           )}
-          {(companyFilter || searchTerm.trim()) && (
+          {(clientFilter || searchTerm.trim()) && (
             <button
               onClick={() => {
                 setSearchTerm('')

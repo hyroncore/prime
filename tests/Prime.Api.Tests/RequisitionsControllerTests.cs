@@ -4,12 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.DependencyInjection;
 using Prime.Api.Controllers;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
-using Prime.Api.Services;
 using System.Security.Claims;
 
 namespace Prime.Api.Tests;
@@ -36,26 +34,20 @@ public class RequisitionsControllerTests : IDisposable
         _db.Users.Add(new AppUser { Id = 1, Username = "testuser", DisplayName = "Test User", Role = "User", PasswordHash = "dummy", IsActive = true, CreatedAt = DateTime.UtcNow });
         _db.SaveChanges();
 
-        // Create a mock MultiTenantService
-        var services = new ServiceCollection();
-        services.AddHttpContextAccessor();
-        var serviceProvider = services.BuildServiceProvider();
-        var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
-        var multiTenant = new MultiTenantService(httpContextAccessor);
-
-        var controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot), multiTenant);
-        controller.ControllerContext = new ControllerContext
+        _controller = new RequisitionsController(_db, new FakeEnvironment(_contentRoot))
         {
-            HttpContext = new DefaultHttpContext
+            ControllerContext = new ControllerContext
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                HttpContext = new DefaultHttpContext
                 {
-                    new Claim(ClaimTypes.NameIdentifier, "1"),
-                    new Claim(ClaimTypes.Role, "User")
-                }))
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, "1"),
+                        new Claim(ClaimTypes.Role, "User")
+                    }))
+                }
             }
         };
-        _controller = controller;
     }
 
     public void Dispose()

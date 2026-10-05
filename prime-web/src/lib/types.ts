@@ -359,7 +359,6 @@ export interface UserDto {
   createdAt: string
   lastLoginAt: string | null
   managerId: number | null
-  companyId: number | null
 }
 
 export interface LoginRequest {
@@ -382,7 +381,6 @@ export interface CreateUserRequest {
   displayName: string
   role: UserRole
   initialPassword: string
-  companyId?: number | null
 }
 
 export interface UpdateUserRequest {
@@ -390,37 +388,10 @@ export interface UpdateUserRequest {
   role: UserRole
   isActive: boolean
   managerId?: number | null
-  companyId?: number | null
 }
 
 export interface ResetPasswordRequest {
   newPassword: string
-}
-
-export interface CompanyDto {
-  id: number
-  name: string
-  code: string
-  description: string | null
-  isActive: boolean
-  createdAt: string
-  usersCount: number
-  clientsCount: number
-  plantsCount: number
-  requisitionsCount: number
-}
-
-export interface CreateCompanyRequest {
-  name: string
-  code: string
-  description?: string | null
-}
-
-export interface UpdateCompanyRequest {
-  name: string
-  code: string
-  description?: string | null
-  isActive: boolean
 }
 
 export interface WorkflowCountsDto {
