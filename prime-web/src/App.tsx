@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { ClientFormDialog } from '@/components/ClientFormDialog'
-import { Header } from '@/components/Header'
+import { Header } from '@/components/layout/Header'
 import { PlantFormDialog } from '@/components/PlantFormDialog'
 import { RequisitionDrawer } from '@/components/RequisitionDrawer'
 import { Sidebar } from '@/components/Sidebar'

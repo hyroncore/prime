@@ -28,6 +28,9 @@ interface RequisitionFilters {
 interface AppState {
   loading: boolean
   error: string | null
+  sidebarOpen: boolean
+  setSidebarOpen: (open: boolean) => void
+  toggleSidebar: () => void
 
   stats: DashboardStatsDto | null
   kpiStats: RequisitionStatsDto | null
@@ -109,6 +112,9 @@ let allSeq = 0
 export const useAppStore = create<AppState>((set, get) => ({
   loading: false,
   error: null,
+  sidebarOpen: false,
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
   stats: null,
   kpiStats: null,
