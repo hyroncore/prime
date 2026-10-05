@@ -1,311 +1,400 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/StatusBadge'
-import { formatDateShort, getUrgencyMeta, STATUS_META } from '@/lib/format'
-import type { RequisitionStatus } from '@/lib/types'
-import { useAppStore } from '@/store/useAppStore'
+import { formatDateShort, getUrgencyMeta } from '@/lib/format'
 import { api } from '@/lib/api'
+import { useAppStore } from '@/store/useAppStore'
 
-const FUNNEL_ORDER: RequisitionStatus[] = [
-  'NEW',
-  'REVIEW',
-  'PROCESSING',
-  'SUBMITTED',
-  'APPROVED',
-  'REVISE',
-  'WON',
-  'LOST',
-  'DECLINED',
-]
+const numberFormatter = new Intl.NumberFormat('ar')
+
+const PAGE_TEXT = {
+  title: 'لوحة معلومات المستخدم',
+  description: 'ملخص طلباتك والمهام التي تحتاج إلى متابعتك.',
+  createRequest: 'طلب شراء جديد',
+  metrics: 'ملخص الطلبات',
+  active: 'طلباتي النشطة',
+  activeDescription: 'مسودات وطلبات قيد المتابعة',
+  drafts: 'المسودات',
+  draftsDescription: 'لم تُرسل للمراجعة بعد',
+  review: 'بانتظار المراجعة',
+  reviewDescription: 'تم إرسالها إلى المدير',
+  signOff: 'بانتظار التوقيع',
+  signOffDescription: 'بانتظار رد العميل',
+  revision: 'تتطلب تعديلاً',
+  revisionDescription: 'أُعيدت إليك مع ملاحظات',
+  overdue: 'الطلبات المتأخرة',
+  overdueDescription: 'تجاوزت تاريخ الاستحقاق',
+  actionRequired: 'طلبات تحتاج إلى تعديل',
+  actionRequiredDescription: 'تابع الطلبات المعادة إليك وأكمل التعديلات المطلوبة.',
+  noActionRequired: 'لا توجد طلبات تتطلب إجراءً حالياً.',
+  openRequest: (identifier: string, title: string) => `فتح الطلب ${identifier}: ${title}`,
+  outcomes: 'النتائج',
+  won: 'طلبات فائزة',
+  lost: 'طلبات غير فائزة',
+  winRate: 'نسبة الفوز',
+  emptyTitle: 'لا توجد طلبات شراء بعد',
+  emptyDescription: 'أنشئ أول طلب شراء لك لمتابعة حالته ومواعيد استحقاقه هنا.',
+  loadError: 'تعذر تحميل بيانات لوحة المعلومات.',
+  retry: 'إعادة المحاولة',
+  retrying: 'جارٍ التحديث…',
+  unavailable: 'لا تتوفر بيانات لوحة المعلومات حالياً.',
+} as const
+
+interface DashboardMetric {
+  title: string
+  value: number
+  description: string
+  attention?: boolean
+}
+
+function DashboardSkeleton() {
+  return (
+    <div dir="rtl" className="mx-auto w-full max-w-screen-2xl space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48 rounded-lg" />
+          <Skeleton className="h-4 w-64 rounded-lg" />
+        </div>
+        <Skeleton className="h-11 w-36 rounded-lg" />
+      </header>
+      <section aria-label={PAGE_TEXT.metrics} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }, (_, index) => (
+          <Card key={index}>
+            <CardContent className="space-y-3 p-5">
+              <Skeleton className="h-4 w-32 rounded" />
+              <Skeleton className="h-8 w-16 rounded" />
+              <Skeleton className="h-3 w-36 rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+      <section className="space-y-3">
+        <Skeleton className="h-5 w-44 rounded" />
+        <Card>
+          <CardContent className="space-y-3 p-5">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-16 w-full rounded-lg" />
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+    </div>
+  )
+}
+
+function DashboardError({
+  error,
+  loading,
+  onRetry,
+}: {
+  error: string
+  loading: boolean
+  onRetry: () => void
+}) {
+  return (
+    <div dir="rtl" className="mx-auto w-full max-w-screen-2xl space-y-6">
+      <header>
+        <h1 className="text-2xl font-black tracking-tight">{PAGE_TEXT.title}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">{PAGE_TEXT.description}</p>
+      </header>
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <p role="alert" className="text-sm text-destructive">
+            {error || PAGE_TEXT.unavailable}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRetry}
+            disabled={loading}
+            aria-busy={loading}
+            className="min-h-11"
+          >
+            {loading ? PAGE_TEXT.retrying : PAGE_TEXT.retry}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function MetricCard({ title, value, description, attention = false }: DashboardMetric) {
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-5">
+        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+        <p
+          className={`text-3xl font-black tabular-nums ${attention ? 'text-destructive' : ''}`}
+        >
+          {numberFormatter.format(value)}
+        </p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  )
+}
 
 export function UserDashboardPage() {
   const navigate = useNavigate()
-  const setUserStats = useAppStore((s) => s.setUserStats)
-  const userStats = useAppStore((s) => s.userStats)
-  const loading = useAppStore((s) => s.loading)
-  const openDrawer = useAppStore((s) => s.openDrawer)
-  const setLoading = useAppStore((s) => s.setLoading)
-  const setError = useAppStore((s) => s.setError)
+  const userStats = useAppStore((state) => state.userStats)
+  const setUserStats = useAppStore((state) => state.setUserStats)
+  const openDrawer = useAppStore((state) => state.openDrawer)
+  const [loading, setLoading] = useState(!userStats)
+  const [error, setError] = useState<string | null>(null)
+  const requestSequence = useRef(0)
+
+  const loadDashboard = useCallback(async () => {
+    const sequence = ++requestSequence.current
+    setLoading(true)
+    setError(null)
+    try {
+      const stats = await api.dashboard.userStats()
+      if (sequence === requestSequence.current) setUserStats(stats)
+    } catch (loadError) {
+      if (sequence === requestSequence.current) {
+        setError(
+          loadError instanceof Error ? loadError.message : PAGE_TEXT.loadError
+        )
+      }
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false)
+    }
+  }, [setUserStats])
 
   useEffect(() => {
-    let cancelled = false
-    const fetchStats = async () => {
-      try {
-        setLoading(true)
-        const stats = await api.dashboard.userStats()
-        if (!cancelled) setUserStats(stats)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load dashboard')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    void loadDashboard()
+    return () => {
+      requestSequence.current += 1
     }
-    fetchStats()
-    return () => { cancelled = true }
-  }, [setUserStats, setLoading, setError])
+  }, [loadDashboard])
 
-  if (loading && !userStats) {
+  if (loading && !userStats) return <DashboardSkeleton />
+  if (!userStats) {
     return (
-      <div className="space-y-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-48 rounded-lg mb-2" />
-            <Skeleton className="h-4 w-64 rounded-lg" />
-          </div>
-          <Skeleton className="h-9 w-28 rounded-lg" />
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-y-8">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i}>
-              <Skeleton className="h-3 w-24 rounded mb-3" />
-              <Skeleton className="h-9 w-32 rounded mb-1" />
-              <Skeleton className="h-3 w-20 rounded" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-          <div className="xl:col-span-7">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 py-4 border-t border-border first:border-t-0">
-                <Skeleton className="h-4 w-28 rounded" />
-                <Skeleton className="h-4 flex-1 rounded" />
-                <Skeleton className="h-4 w-20 rounded" />
-              </div>
-            ))}
-          </div>
-          <div className="xl:col-span-5 space-y-10">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i}>
-                <Skeleton className="h-3 w-28 rounded mb-2" />
-                <Skeleton className="h-1 w-full rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <DashboardError
+        error={error ?? PAGE_TEXT.unavailable}
+        loading={loading}
+        onRetry={() => void loadDashboard()}
+      />
     )
   }
 
-  const funnelCounts: Record<RequisitionStatus, number> = {
-    NEW: userStats?.myDrafts ?? 0,
-    REVIEW: userStats?.awaitingReview ?? 0,
-    PROCESSING: userStats?.awaitingReview ?? 0,
-    SUBMITTED: userStats?.awaitingSignOff ?? 0,
-    APPROVED: 0,
-    REVISE: userStats?.reviseCount ?? 0,
-    WON: userStats?.wonCount ?? 0,
-    LOST: userStats?.lostCount ?? 0,
-    DECLINED: 0,
-  }
-
-  const funnelTotal = FUNNEL_ORDER.reduce((sum, s) => sum + funnelCounts[s], 0)
-
-  const kpis = [
+  const metrics: DashboardMetric[] = [
     {
-      title: 'طلباتي النشطة',
-      value: String(userStats?.myActiveRequisitions ?? 0),
-      subtitle: 'مسودات + قيد المراجعة + قيد المعالجة',
+      title: PAGE_TEXT.active,
+      value: userStats.myActiveRequisitions,
+      description: PAGE_TEXT.activeDescription,
     },
     {
-      title: 'مسودات',
-      value: String(userStats?.myDrafts ?? 0),
-      subtitle: 'لم تُرسل للمراجعة بعد',
+      title: PAGE_TEXT.drafts,
+      value: userStats.myDrafts,
+      description: PAGE_TEXT.draftsDescription,
     },
     {
-      title: 'بانتظار المراجعة',
-      value: String(userStats?.awaitingReview ?? 0),
-      subtitle: 'تم الإرسال، بانتظار قرار المدير',
+      title: PAGE_TEXT.review,
+      value: userStats.awaitingReview,
+      description: PAGE_TEXT.reviewDescription,
     },
     {
-      title: 'بانتظار التوقيع',
-      value: String(userStats?.awaitingSignOff ?? 0),
-      subtitle: 'مُعتمدة داخلياً، بانتظار العميل',
+      title: PAGE_TEXT.signOff,
+      value: userStats.awaitingSignOff,
+      description: PAGE_TEXT.signOffDescription,
     },
     {
-      title: 'تتطلب تعديل',
-      value: String(userStats?.reviseCount ?? 0),
-      subtitle: 'أُعيدت للمراجعة مع ملاحظات',
-      accent: (userStats?.reviseCount ?? 0) > 0,
+      title: PAGE_TEXT.revision,
+      value: userStats.reviseCount,
+      description: PAGE_TEXT.revisionDescription,
+      attention: userStats.reviseCount > 0,
+    },
+    {
+      title: PAGE_TEXT.overdue,
+      value: userStats.overdueCount,
+      description: PAGE_TEXT.overdueDescription,
+      attention: userStats.overdueCount > 0,
     },
   ]
+  const hasAnyRequests =
+    userStats.myActiveRequisitions > 0 ||
+    userStats.myDrafts > 0 ||
+    userStats.awaitingReview > 0 ||
+    userStats.awaitingSignOff > 0 ||
+    userStats.reviseCount > 0 ||
+    userStats.overdueCount > 0 ||
+    userStats.wonCount > 0 ||
+    userStats.lostCount > 0
 
   return (
-    <div dir="rtl" className="space-y-10">
-      <div className="flex items-center justify-between">
+    <div dir="rtl" className="mx-auto w-full max-w-screen-2xl space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">لوحة تحكم المستخدم</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            نظرة عامة على طلباتك الشخصية والمهام المطلوبة
-          </p>
+          <h1 className="text-2xl font-black tracking-tight">{PAGE_TEXT.title}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{PAGE_TEXT.description}</p>
         </div>
         <Button
+          type="button"
           onClick={() => navigate('/requisitions/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
+          className="min-h-11 w-full sm:w-auto"
         >
-          + طلب شراء جديد
+          {PAGE_TEXT.createRequest}
         </Button>
-      </div>
+      </header>
 
-      {userStats && userStats.myActiveRequisitions === 0 && userStats.myDrafts === 0 && userStats.reviseCount === 0 ? (
-        <Card className="flex flex-col items-center justify-center gap-4 p-16 text-center">
-          <p className="text-base font-black">لا توجد طلبات شراء لك بعد</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            ابدأ بإنشاء أول طلب شراء لك، وسيظهر هنا تلقائياً مع تتبع حالته
-          </p>
-          <Button
-            onClick={() => navigate('/requisitions/new')}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
-          >
-            + طلب شراء جديد
-          </Button>
+      {error && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <p role="alert" className="text-sm text-destructive">{error}</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadDashboard()}
+              disabled={loading}
+              aria-busy={loading}
+              className="min-h-11"
+            >
+              {loading ? PAGE_TEXT.retrying : PAGE_TEXT.retry}
+            </Button>
+          </CardContent>
         </Card>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-y-8">
-            {kpis.map((stat, i) => (
-              <div
-                key={i}
-                className="lg:border-e lg:border-border lg:px-8 lg:first:ps-0 lg:last:border-e-0"
-              >
-                <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                  {stat.title}
-                </p>
-                <p
-                  className={
-                    'mt-2 text-4xl font-black tabular-nums tracking-tight' +
-                    (stat.accent ? ' text-red-700 dark:text-red-400' : '')
-                  }
-                >
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground font-medium">
-                  {stat.subtitle}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-2 text-[11px] font-bold text-muted-foreground tracking-wide">
-              توزيع حالات طلباتك
-            </p>
-            <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-              {funnelTotal > 0 &&
-                FUNNEL_ORDER.map((status) => {
-                  const count = funnelCounts[status]
-                  if (count === 0) return null
-                  return (
-                    <div
-                      key={status}
-                      title={`${STATUS_META[status].label}: ${count}`}
-                      className={`${STATUS_META[status].badgeClass} h-full`}
-                      style={{ width: `${(count / funnelTotal) * 100}%` }}
-                    />
-                  )
-                })}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-              {FUNNEL_ORDER.map((status) => {
-                const count = funnelCounts[status]
-                return (
-                  <div key={status} className="flex items-center gap-1.5">
-                    <span
-                      className={`inline-block h-2 w-2 rounded-full ${STATUS_META[status].badgeClass}`}
-                    />
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      {STATUS_META[status].label}
-                    </span>
-                    <span className="text-[11px] font-black tabular-nums">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-            <div className="xl:col-span-7">
-              <div className="mb-3 flex items-baseline justify-between">
-                <p className="text-[11px] font-bold text-muted-foreground tracking-wide">
-                  {userStats?.actionRequired && userStats.actionRequired.length > 0
-                    ? 'تتطلب إجراء منك (تعديل)'
-                    : 'لا توجد طلبات تتطلب تعديلاً'}
-                </p>
-              </div>
-              <div className="divide-y divide-border">
-                {userStats?.actionRequired && userStats.actionRequired.length > 0 ? (
-                  userStats.actionRequired.map((req) => {
-                    const urgency = getUrgencyMeta(req.daysLeft)
-                    const overdue = req.daysLeft < 0
-                    return (
-                      <div
-                        key={req.id}
-                        onClick={() => openDrawer(req.id)}
-                        className="flex items-center gap-4 -mx-4 cursor-pointer rounded-lg px-4 py-3.5 transition-colors hover:bg-muted/40"
-                      >
-                        <span
-                          dir="ltr"
-                          className="w-28 shrink-0 font-mono text-sm font-bold text-primary"
-                        >
-                          {req.identifier}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{req.title}</p>
-                          <p className="truncate text-[11px] text-muted-foreground font-medium">
-                            {req.clientName} · {req.plantName}
-                          </p>
-                        </div>
-                        <div className="hidden shrink-0 sm:block">
-                          <StatusBadge status={req.status as RequisitionStatus} />
-                        </div>
-                        <div className="shrink-0 text-left">
-                          <p
-                            className={`text-sm font-bold tabular-nums ${
-                              overdue ? 'text-red-700 dark:text-red-400' : ''
-                            }`}
-                          >
-                            {formatDateShort(req.dueDate)}
-                          </p>
-                          <p
-                            className={`text-[11px] font-bold ${
-                              overdue
-                                ? 'text-red-700 dark:text-red-400'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            {urgency.label}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    لا توجد طلبات تتطلب تعديلاً حالياً
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="xl:col-span-5 space-y-10">
-              <div>
-                <p className="mb-2 text-[11px] font-bold text-muted-foreground tracking-wide">
-                  الطلبات المتأخرة
-                </p>
-                {userStats && userStats.overdueCount > 0 ? (
-                  <p className="text-sm font-bold text-red-700 dark:text-red-400">
-                    لديك {userStats.overdueCount} طلب متأخر — راجع القائمة أعلاه
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">لا توجد طلبات متأخرة</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
       )}
+
+      <section
+        aria-label={PAGE_TEXT.metrics}
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
+        {metrics.map((metric) => (
+          <MetricCard key={metric.title} {...metric} />
+        ))}
+      </section>
+
+      {!hasAnyRequests && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 p-6 text-center sm:p-10">
+            <h2 className="text-lg font-bold">{PAGE_TEXT.emptyTitle}</h2>
+            <p className="max-w-md text-sm text-muted-foreground">{PAGE_TEXT.emptyDescription}</p>
+            <Button
+              type="button"
+              onClick={() => navigate('/requisitions/new')}
+              className="min-h-11"
+            >
+              {PAGE_TEXT.createRequest}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <section aria-labelledby="action-required-heading" className="space-y-3 xl:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle id="action-required-heading" className="text-base font-bold">
+                {PAGE_TEXT.actionRequired}
+              </CardTitle>
+              <CardDescription>{PAGE_TEXT.actionRequiredDescription}</CardDescription>
+            </CardHeader>
+            <CardContent className="border-t pt-2">
+              {userStats.actionRequired.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {userStats.actionRequired.map((requisition) => {
+                    const urgency = getUrgencyMeta(requisition.daysLeft)
+                    const isOverdue = requisition.daysLeft < 0
+                    return (
+                      <li key={requisition.id}>
+                        <button
+                          type="button"
+                          onClick={() => void openDrawer(requisition.id)}
+                          aria-label={PAGE_TEXT.openRequest(requisition.identifier, requisition.title)}
+                          className="flex min-h-16 w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-3 py-3 text-start transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                        >
+                          <span
+                            dir="ltr"
+                            className="w-28 shrink-0 font-mono text-sm font-semibold text-primary"
+                          >
+                            {requisition.identifier}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">
+                              {requisition.title}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {requisition.clientName} · {requisition.plantName}
+                            </span>
+                          </span>
+                          <span className="shrink-0">
+                            <StatusBadge status={requisition.status} />
+                          </span>
+                          <span className="ms-auto min-w-24 shrink-0 text-end">
+                            <span
+                              className={`block text-sm font-semibold tabular-nums ${
+                                isOverdue ? 'text-destructive' : ''
+                              }`}
+                            >
+                              {formatDateShort(requisition.dueDate)}
+                            </span>
+                            <span
+                              className={`mt-0.5 block text-xs ${
+                                isOverdue
+                                  ? 'font-semibold text-destructive'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {urgency.label}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  {PAGE_TEXT.noActionRequired}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section aria-labelledby="outcomes-heading" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle id="outcomes-heading" className="text-base font-bold">
+                {PAGE_TEXT.outcomes}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 border-t pt-5">
+              <OutcomeMetric title={PAGE_TEXT.won} value={userStats.wonCount} />
+              <OutcomeMetric title={PAGE_TEXT.lost} value={userStats.lostCount} />
+              <div className="border-t pt-4">
+                <p className="text-xs font-medium text-muted-foreground">{PAGE_TEXT.winRate}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums">
+                  {new Intl.NumberFormat('ar', { maximumFractionDigits: 1 }).format(
+                    userStats.winRate
+                  )}
+                  <span className="ms-1 text-sm font-medium text-muted-foreground">٪</span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function OutcomeMetric({ title, value }: { title: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <p className="text-sm text-muted-foreground">{title}</p>
+      <p className="text-lg font-bold tabular-nums">{numberFormatter.format(value)}</p>
     </div>
   )
 }
