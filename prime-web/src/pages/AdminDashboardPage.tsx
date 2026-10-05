@@ -261,42 +261,42 @@ export function AdminDashboardPage() {
       <section aria-labelledby="system-summary-heading" className="space-y-3">
         <h2 id="system-summary-heading" className="text-sm font-black">ملخص النظام</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="p-5">
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
-            إجمالي المستخدمين
-          </p>
-          {statsLoading && !adminStats ? (
-            <Skeleton className="h-8 w-16 rounded" />
-          ) : (
-            <p className="text-start text-2xl font-black tabular-nums">
-              {adminStats ? numberFormatter.format(adminStats.totalUsers) : '—'}
+          <Card className="p-5">
+            <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
+              إجمالي المستخدمين
             </p>
-          )}
-        </Card>
-        <Card className="p-5">
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
-            إجمالي العملاء
-          </p>
-          {statsLoading && !adminStats ? (
-            <Skeleton className="h-8 w-16 rounded" />
-          ) : (
-            <p className="text-start text-2xl font-black tabular-nums">
-              {adminStats ? numberFormatter.format(adminStats.totalClients) : '—'}
+            {statsLoading && !adminStats ? (
+              <Skeleton className="h-8 w-16 rounded" />
+            ) : (
+              <p className="text-start text-2xl font-black tabular-nums">
+                {adminStats ? numberFormatter.format(adminStats.totalUsers) : '—'}
+              </p>
+            )}
+          </Card>
+          <Card className="p-5">
+            <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
+              إجمالي العملاء
             </p>
-          )}
-        </Card>
-        <Card className="p-5">
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
-            إجمالي السجلات
-          </p>
-          {healthLoading && !systemHealth ? (
-            <Skeleton className="h-8 w-16 rounded" />
-          ) : (
-            <p className="text-start text-2xl font-black tabular-nums">
-              {totalRecords === null ? '—' : numberFormatter.format(totalRecords)}
+            {statsLoading && !adminStats ? (
+              <Skeleton className="h-8 w-16 rounded" />
+            ) : (
+              <p className="text-start text-2xl font-black tabular-nums">
+                {adminStats ? numberFormatter.format(adminStats.totalClients) : '—'}
+              </p>
+            )}
+          </Card>
+          <Card className="p-5">
+            <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">
+              إجمالي السجلات
             </p>
-          )}
-        </Card>
+            {healthLoading && !systemHealth ? (
+              <Skeleton className="h-8 w-16 rounded" />
+            ) : (
+              <p className="text-start text-2xl font-black tabular-nums">
+                {totalRecords === null ? '—' : numberFormatter.format(totalRecords)}
+              </p>
+            )}
+          </Card>
         </div>
       </section>
 
@@ -307,9 +307,9 @@ export function AdminDashboardPage() {
       )}
 
       <section aria-labelledby="system-health-heading" className="space-y-3">
-        <h2 id="system-health-heading" className="text-sm font-black">حالة النظام</h2>
+        <h2 id="system-health-heading" className="px-6 text-sm font-black">حالة النظام</h2>
         <Card>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-6">
             {healthError ? (
               <p role="alert" className="text-sm text-destructive">{healthError}</p>
             ) : healthLoading && !systemHealth ? (
@@ -371,9 +371,9 @@ export function AdminDashboardPage() {
       </section>
 
       <section aria-labelledby="backups-heading" className="space-y-3">
-        <h2 id="backups-heading" className="text-sm font-black">النسخ الاحتياطية</h2>
+        <h2 id="backups-heading" className="px-6 text-sm font-black">النسخ الاحتياطية</h2>
         <Card>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="max-w-prose text-sm text-muted-foreground">
                 أنشئ نسخة احتياطية لحماية بيانات النظام.
@@ -458,7 +458,7 @@ export function AdminDashboardPage() {
       </section>
 
       <section aria-labelledby="users-heading" className="space-y-3">
-        <h2 id="users-heading" className="text-sm font-black">المستخدمون</h2>
+        <h2 id="users-heading" className="px-6 text-sm font-black">المستخدمون</h2>
         <Card className="overflow-hidden">
           {adminStats?.recentUsers.length ? (
             <Table className="min-w-[560px]">
@@ -525,7 +525,7 @@ export function AdminDashboardPage() {
       </section>
 
       <section aria-labelledby="clients-heading" className="space-y-3">
-        <h2 id="clients-heading" className="text-sm font-black">العملاء</h2>
+        <h2 id="clients-heading" className="px-6 text-sm font-black">العملاء</h2>
         <Card className="overflow-hidden">
           {adminStats?.topClients.length ? (
             <Table className="min-w-[360px]">
