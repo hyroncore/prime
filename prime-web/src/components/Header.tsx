@@ -11,9 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/store/useAuthStore'
 import { applyTheme, themeIsDark, useSettingsStore } from '@/store/useSettingsStore'
-import { api } from '@/lib/api'
-import { useState, useEffect } from 'react'
-import { CompanyDto } from '@/lib/types'
 
 function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -28,13 +25,6 @@ export function Header() {
 
   const isDark = themeIsDark(theme)
 
-  // Company switcher state
-  const [companies, setCompanies] = useState<CompanyDto[]>([])
-  const [activeCompanyId, setActiveCompanyId] = useState<number | null>(null)
-
-  const isAdmin = user?.role === 'Admin'
-  const userCompanyId = user?.companyId ?? null
-
   const toggleTheme = () => {
     const next = isDark ? 'light' : 'dark'
     setTheme(next)
@@ -46,63 +36,8 @@ export function Header() {
     window.location.assign('/login')
   }
 
-  const fetchCompanies = async () => {
-    if (!isAdmin) return
-    try {
-      const data = await api.companies.list()
-      setCompanies(data)
-      // Set active company to user's current company
-      if (userCompanyId) {
-        setActiveCompanyId(userCompanyId)
-      } else if (data.length > 0) {
-        setActiveCompanyId(data[0].id)
-      }
-    } catch (e) {
-      console.error('Failed to load companies:', e)
-    }
-  }
-
-  useEffect(() => {
-    if (isAdmin) {
-      fetchCompanies()
-    }
-  }, [isAdmin])
-
-  const handleCompanyChange = async (companyId: number) => {
-    setActiveCompanyId(companyId)
-    // In a real app, you'd update the user's company context here
-    // For now, we'll just store it in localStorage
-    localStorage.setItem('prime.active_company_id', String(companyId))
-    window.location.reload()
-  }
-
   const renderUserMenu = () => {
     if (!user) return null
-
-    // Extract company switcher for cleaner JSX
-    const companySwitcher = isAdmin && companies.length > 1 ? (
-      <div>
-        <DropdownMenuSeparator className="my-1" />
-        <DropdownMenuLabel className="px-3 py-1 text-xs font-semibold text-muted-foreground">
-          الشركة الحالية
-        </DropdownMenuLabel>
-        {companies.map((company) => (
-          <DropdownMenuItem
-            key={company.id}
-            onClick={() => handleCompanyChange(company.id)}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted/50 ${
-              activeCompanyId === company.id ? 'bg-primary/10 text-primary' : ''
-            }`}
-          >
-            {activeCompanyId === company.id && (
-              <span className="text-primary font-bold">✓</span>
-            )}
-            <span className="font-medium">{company.name}</span>
-            <span className="text-[10px] text-muted-foreground">{company.code}</span>
-          </DropdownMenuItem>
-        ))}
-      </div>
-    ) : null
 
     return (
       <DropdownMenu>
@@ -146,7 +81,6 @@ export function Header() {
           >
             الحساب
           </DropdownMenuItem>
-          {companySwitcher}
           <DropdownMenuSeparator className="my-1" />
           <DropdownMenuItem
             onClick={handleLogout}

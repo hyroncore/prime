@@ -26,7 +26,6 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<UserDto>>> List() =>
         Ok(await _db.Users
-            .Include(u => u.Company)
             .OrderBy(u => u.Id)
             .Select(u => ToDto(u))
             .ToListAsync());
@@ -58,22 +57,12 @@ public class UsersController : ControllerBase
             return Conflict(new { message = "اسم المستخدم مستخدم بالفعل" });
         }
 
-        if (request.CompanyId.HasValue)
-        {
-            var companyExists = await _db.Companies.AnyAsync(c => c.Id == request.CompanyId.Value);
-            if (!companyExists)
-            {
-                return BadRequest(new { message = "الشركة المحددة غير موجودة" });
-            }
-        }
-
         var user = new AppUser
         {
             Username = username,
             DisplayName = displayName,
             Role = role,
-            PasswordHash = _hasher.HashPassword(new AppUser(), request.InitialPassword),
-            CompanyId = request.CompanyId
+            PasswordHash = _hasher.HashPassword(new AppUser(), request.InitialPassword)
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -105,20 +94,10 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "لا يمكن تعديل آخر مسؤول نشط في النظام" });
         }
 
-        if (request.CompanyId.HasValue)
-        {
-            var companyExists = await _db.Companies.AnyAsync(c => c.Id == request.CompanyId.Value);
-            if (!companyExists)
-            {
-                return BadRequest(new { message = "الشركة المحددة غير موجودة" });
-            }
-        }
-
         user.DisplayName = request.DisplayName?.Trim() ?? user.DisplayName;
         user.Role = role;
         user.IsActive = request.IsActive;
         user.ManagerId = request.ManagerId;
-        user.CompanyId = request.CompanyId;
         await _db.SaveChangesAsync();
         return Ok(ToDto(user));
     }
@@ -202,7 +181,5 @@ public class UsersController : ControllerBase
         user.IsActive,
         user.CreatedAt,
         user.LastLoginAt,
-        user.ManagerId,
-        user.CompanyId,
-        user.Company?.Name);
+        user.ManagerId);
 }

@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Prime.Api.Data;
 using Prime.Api.DTOs;
 using Prime.Api.Models;
-using Prime.Api.Services;
 
 namespace Prime.Api.Controllers;
 
@@ -13,12 +12,10 @@ namespace Prime.Api.Controllers;
 public class PlantsController : ControllerBase
 {
     private readonly PrimeDbContext _db;
-    private readonly MultiTenantService _multiTenant;
 
-    public PlantsController(PrimeDbContext db, MultiTenantService multiTenant)
+    public PlantsController(PrimeDbContext db)
     {
         _db = db;
-        _multiTenant = multiTenant;
     }
 
     [HttpGet]
@@ -27,8 +24,6 @@ public class PlantsController : ControllerBase
         var query = _db.Plants
             .Include(p => p.Client)
             .AsQueryable();
-
-        query = _multiTenant.ApplyCompanyScope(query);
 
         var plants = await query.ToListAsync();
 
@@ -73,8 +68,6 @@ public class PlantsController : ControllerBase
         var query = _db.Plants
             .Include(p => p.Client)
             .AsQueryable();
-
-        query = _multiTenant.ApplyCompanyScope(query);
 
         var p = await query.FirstOrDefaultAsync(p => p.Id == id);
 
@@ -129,22 +122,11 @@ public class PlantsController : ControllerBase
             return BadRequest(new { message = "الجهة غير موجودة." });
         }
 
-        // Get company ID from current user's context
-        var companyId = User.FindFirst("company_id")?.Value;
-        if (string.IsNullOrEmpty(companyId) || !int.TryParse(companyId, out var cid))
-        {
-            // Admin can specify company via client
-            var client = await _db.Clients.FindAsync(request.ClientId);
-            if (client == null) return BadRequest(new { message = "الجهة غير موجودة." });
-            cid = client.CompanyId ?? 0;
-        }
-
         var plant = new Plant
         {
             PlantName = request.PlantName.Trim(),
             ShortCode = shortCode,
-            ClientId = request.ClientId,
-            CompanyId = cid
+            ClientId = request.ClientId
         };
 
         _db.Plants.Add(plant);
@@ -157,7 +139,6 @@ public class PlantsController : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdatePlantRequest request)
     {
         var query = _db.Plants.AsQueryable();
-        query = _multiTenant.ApplyCompanyScope(query);
 
         var plant = await query.FirstOrDefaultAsync(p => p.Id == id);
         if (plant == null) return NotFound();
@@ -191,7 +172,6 @@ public class PlantsController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var query = _db.Plants.AsQueryable();
-        query = _multiTenant.ApplyCompanyScope(query);
 
         var plant = await query.FirstOrDefaultAsync(p => p.Id == id);
         if (plant == null) return NotFound();

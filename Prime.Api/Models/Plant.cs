@@ -16,9 +16,5 @@ public class Plant
     [Required]
     public string ShortCode { get; set; } = string.Empty;
 
-    // Company association (for easier querying)
-    public int? CompanyId { get; set; }
-    public Company? Company { get; set; }
-
     public List<PurchaseRequisition> Requisitions { get; set; } = new();
 }
