@@ -144,6 +144,8 @@ export const api = {
       plantId?: number
       sectorCode?: string
       status?: string
+      from?: string
+      to?: string
       page?: number
       pageSize?: number
     }) => {
@@ -152,6 +154,8 @@ export const api = {
       if (params?.plantId) qs.set('plantId', String(params.plantId))
       if (params?.sectorCode) qs.set('sectorCode', params.sectorCode)
       if (params?.status) qs.set('status', params.status)
+      if (params?.from) qs.set('from', params.from)
+      if (params?.to) qs.set('to', params.to)
       if (params?.page) qs.set('page', String(params.page))
       if (params?.pageSize) qs.set('pageSize', String(params.pageSize))
       const query = qs.toString()

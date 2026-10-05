@@ -1,31 +1,32 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { api } from '@/lib/api';
-import { useAppStore } from '@/store/useAppStore';
-import { useToast } from '@/hooks/use-toast';
-import type { RequisitionDto } from '@/lib/types';
-import { TabKey, WorkflowFilters, WorkflowCounts } from './workflowTypes';
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { api } from '@/lib/api'
+import { useAppStore } from '@/store/useAppStore'
+import { useToast } from '@/hooks/use-toast'
+import type { RequisitionDto } from '@/lib/types'
+import type { TabKey, WorkflowCounts, WorkflowFilters } from './workflowTypes'
 
 interface UseWorkflowReturn {
-  items: RequisitionDto[];
-  counts: WorkflowCounts;
-  total: number;
-  page: number;
-  pageSize: number;
-  loading: boolean;
-  error: string | null;
-  activeTab: TabKey;
-  filters: WorkflowFilters;
-  setActiveTab: (tab: TabKey) => void;
-  setFilters: (filters: Partial<WorkflowFilters>) => void;
-  clearFilters: () => void;
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
-  approveReview: (id: number, notes: string) => Promise<void>;
-  declineReview: (id: number, notes: string) => Promise<void>;
-  approveInternal: (id: number, notes: string) => Promise<void>;
-  requestRevision: (id: number, notes: string) => Promise<void>;
-  refresh: () => Promise<void>;
+  items: RequisitionDto[]
+  counts: WorkflowCounts | null
+  countsError: string | null
+  total: number
+  page: number
+  pageSize: number
+  loading: boolean
+  error: string | null
+  activeTab: TabKey
+  filters: WorkflowFilters
+  setActiveTab: (tab: TabKey) => void
+  setFilters: (filters: Partial<WorkflowFilters>) => void
+  clearFilters: () => void
+  setPage: (page: number) => void
+  setPageSize: (size: number) => void
+  approveReview: (id: number, notes: string) => Promise<void>
+  declineReview: (id: number, notes: string) => Promise<void>
+  approveInternal: (id: number, notes: string) => Promise<void>
+  requestRevision: (id: number, notes: string) => Promise<void>
+  refresh: () => Promise<void>
 }
 
 const DEFAULT_FILTERS: WorkflowFilters = {
@@ -34,182 +35,232 @@ const DEFAULT_FILTERS: WorkflowFilters = {
   sectorCode: null,
   from: null,
   to: null,
-};
+}
+
+const PAGE_SIZES = [25, 50, 100]
+
+function readTab(value: string | null): TabKey {
+  return value === 'internal' || value === 'archive' ? value : 'review'
+}
+
+function readPositiveInteger(value: string | null, fallback: number) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function readFilters(params: URLSearchParams): WorkflowFilters {
+  const plantId = Number(params.get('plantId'))
+  return {
+    search: params.get('search') ?? '',
+    plantId: Number.isInteger(plantId) && plantId > 0 ? plantId : null,
+    sectorCode: params.get('sectorCode') || null,
+    from: params.get('from') || null,
+    to: params.get('to') || null,
+  }
+}
 
 export function useWorkflow(): UseWorkflowReturn {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { toast } = useToast()
+  const initialParams = useRef(searchParams)
+  const [items, setItems] = useState<RequisitionDto[]>([])
+  const [counts, setCounts] = useState<WorkflowCounts | null>(null)
+  const [countsError, setCountsError] = useState<string | null>(null)
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(() =>
+    readPositiveInteger(initialParams.current.get('page'), 1),
+  )
+  const [pageSize, setPageSize] = useState(() => {
+    const size = readPositiveInteger(initialParams.current.get('pageSize'), 50)
+    return PAGE_SIZES.includes(size) ? size : 50
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    readTab(initialParams.current.get('tab')),
+  )
+  const [filters, setFilters] = useState<WorkflowFilters>(() =>
+    readFilters(initialParams.current),
+  )
+  const listSequence = useRef(0)
+  const countSequence = useRef(0)
 
-  const [items, setItems] = useState<RequisitionDto[]>([]);
-  const [counts, setCounts] = useState<WorkflowCounts>({ review: 0, internal: 0, archive: 0 });
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('review');
-  const [filters, setFilters] = useState<WorkflowFilters>(DEFAULT_FILTERS);
-
-  const buildQuery = useCallback(() => {
-    const params = new URLSearchParams();
-    params.set('page', String(page));
-    params.set('pageSize', String(pageSize));
-    
-    const statuses: string[] = [];
-    if (activeTab === 'review') statuses.push('REVIEW');
-    else if (activeTab === 'internal') statuses.push('SUBMITTED');
-    else if (activeTab === 'archive') statuses.push('DECLINED', 'APPROVED', 'REVISE');
-    
-    params.set('status', statuses.join(','));
-    
-    if (filters.search) params.set('search', filters.search);
-    if (filters.plantId) params.set('plantId', String(filters.plantId));
-    if (filters.sectorCode) params.set('sectorCode', filters.sectorCode);
-    if (filters.from) params.set('from', filters.from);
-    if (filters.to) params.set('to', filters.to);
-    
-    return params.toString();
-  }, [activeTab, filters, page, pageSize]);
+  const writeUrl = useCallback(
+    (
+      tab: TabKey,
+      nextFilters: WorkflowFilters,
+      nextPage: number,
+      nextPageSize: number,
+    ) => {
+      const params = new URLSearchParams()
+      params.set('tab', tab)
+      params.set('page', String(nextPage))
+      params.set('pageSize', String(nextPageSize))
+      if (nextFilters.search) params.set('search', nextFilters.search)
+      if (nextFilters.plantId) params.set('plantId', String(nextFilters.plantId))
+      if (nextFilters.sectorCode) params.set('sectorCode', nextFilters.sectorCode)
+      if (nextFilters.from) params.set('from', nextFilters.from)
+      if (nextFilters.to) params.set('to', nextFilters.to)
+      setSearchParams(params, { replace: true })
+    },
+    [setSearchParams],
+  )
 
   const fetchList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    const sequence = ++listSequence.current
+    setLoading(true)
+    setError(null)
     try {
-      buildQuery();
-      // API doesn't support pagination yet, fetch all and slice client-side
-      const response = await api.requisitions.list({ 
-        search: filters.search || undefined,
+      const response = await api.requisitions.list({
+        search: filters.search.trim() || undefined,
         plantId: filters.plantId ?? undefined,
         sectorCode: filters.sectorCode ?? undefined,
-        status: activeTab === 'review' ? 'REVIEW' : activeTab === 'internal' ? 'SUBMITTED' : 'DECLINED,APPROVED,REVISE',
-      });
-      
-      const allItems = response as RequisitionDto[];
-      setTotal(allItems.length);
-      const start = (page - 1) * pageSize;
-      setItems(allItems.slice(start, start + pageSize));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'فشل تحميل البيانات');
-      setItems([]);
-      setTotal(0);
+        from: filters.from ?? undefined,
+        to: filters.to ?? undefined,
+        status:
+          activeTab === 'review'
+            ? 'REVIEW'
+            : activeTab === 'internal'
+              ? 'SUBMITTED'
+              : 'DECLINED,APPROVED,REVISE',
+      })
+      if (sequence !== listSequence.current) return
+      setTotal(response.length)
+      const start = (page - 1) * pageSize
+      setItems(response.slice(start, start + pageSize))
+      const totalPages = Math.max(1, Math.ceil(response.length / pageSize))
+      if (page > totalPages) {
+        setPage(totalPages)
+        writeUrl(activeTab, filters, totalPages, pageSize)
+      }
+    } catch (fetchError) {
+      if (sequence !== listSequence.current) return
+      setError(fetchError instanceof Error ? fetchError.message : 'تعذر تحميل الطلبات.')
+      setItems([])
+      setTotal(0)
     } finally {
-      setLoading(false);
+      if (sequence === listSequence.current) setLoading(false)
     }
-  }, [page, pageSize, activeTab, filters]);
+  }, [activeTab, filters, page, pageSize, writeUrl])
 
   const fetchCounts = useCallback(async () => {
+    const sequence = ++countSequence.current
     try {
-      const data = await api.dashboard.workflowCounts();
-      setCounts(data);
-    } catch {
-      // Silent fail for counts
+      const data = await api.dashboard.workflowCounts()
+      if (sequence !== countSequence.current) return
+      setCounts(data)
+      setCountsError(null)
+    } catch (fetchError) {
+      if (sequence !== countSequence.current) return
+      setCountsError(
+        fetchError instanceof Error ? fetchError.message : 'تعذر تحميل أعداد الطلبات.',
+      )
     }
-  }, []);
+  }, [])
 
   const refresh = useCallback(async () => {
-    await Promise.all([fetchList(), fetchCounts()]);
-    try {
-      await Promise.all([
-        useAppStore.getState().fetchRequisitions(),
-        useAppStore.getState().fetchStats(),
-      ]);
-    } catch {
-      // ignore
-    }
-  }, [fetchList, fetchCounts]);
+    await Promise.all([fetchList(), fetchCounts()])
+    await Promise.all([
+      useAppStore.getState().fetchRequisitions(),
+      useAppStore.getState().fetchStats(),
+    ])
+  }, [fetchCounts, fetchList])
 
-  // Initialize from URL
   useEffect(() => {
-    const tab = searchParams.get('tab') as TabKey | null;
-    if (tab && ['review', 'internal', 'archive'].includes(tab)) {
-      setActiveTab(tab);
-    }
-    
-    const plantId = searchParams.get('plantId');
-    const sectorCode = searchParams.get('sectorCode');
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const search = searchParams.get('search');
-    const p = searchParams.get('page');
-    const ps = searchParams.get('pageSize');
-    
-    if (plantId) setFilters((f) => ({ ...f, plantId: Number(plantId) }));
-    if (sectorCode) setFilters((f) => ({ ...f, sectorCode }));
-    if (from) setFilters((f) => ({ ...f, from }));
-    if (to) setFilters((f) => ({ ...f, to }));
-    if (search) setFilters((f) => ({ ...f, search }));
-    if (p) setPage(Number(p));
-    if (ps) setPageSize(Number(ps));
-  }, [searchParams]);
+    const nextTab = readTab(searchParams.get('tab'))
+    const nextFilters = readFilters(searchParams)
+    const nextPage = readPositiveInteger(searchParams.get('page'), 1)
+    const requestedPageSize = readPositiveInteger(searchParams.get('pageSize'), 50)
+    const nextPageSize = PAGE_SIZES.includes(requestedPageSize) ? requestedPageSize : 50
 
-  // Fetch when dependencies change
+    setActiveTab(nextTab)
+    setFilters(nextFilters)
+    setPage(nextPage)
+    setPageSize(nextPageSize)
+  }, [searchParams])
+
   useEffect(() => {
-    void fetchList();
-    void fetchCounts();
-  }, [fetchList, fetchCounts]);
+    void fetchList()
+    return () => {
+      listSequence.current += 1
+    }
+  }, [fetchList])
+
+  useEffect(() => {
+    void fetchCounts()
+    return () => {
+      countSequence.current += 1
+    }
+  }, [fetchCounts])
 
   const handleSetActiveTab = (tab: TabKey) => {
-    setActiveTab(tab);
-    setPage(1);
-    setSearchParams({ ...Object.fromEntries(searchParams), tab, page: '1' }, { replace: true });
-  };
+    setActiveTab(tab)
+    setPage(1)
+    writeUrl(tab, filters, 1, pageSize)
+  }
 
   const handleSetFilters = (patch: Partial<WorkflowFilters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
+    const nextFilters = { ...filters, ...patch }
+    setFilters(nextFilters)
+    setPage(1)
+    writeUrl(activeTab, nextFilters, 1, pageSize)
+  }
 
   const handleClearFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    setPage(1);
-    const params = { tab: activeTab };
-    setSearchParams(params, { replace: true });
-  };
+    setFilters(DEFAULT_FILTERS)
+    setPage(1)
+    writeUrl(activeTab, DEFAULT_FILTERS, 1, pageSize)
+  }
 
-  const handleSetPage = (p: number) => {
-    setPage(p);
-    setSearchParams({ ...Object.fromEntries(searchParams), page: String(p) }, { replace: true });
-  };
+  const handleSetPage = (nextPage: number) => {
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages)
+    setPage(safePage)
+    writeUrl(activeTab, filters, safePage, pageSize)
+  }
 
   const handleSetPageSize = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-    setSearchParams({ ...Object.fromEntries(searchParams), pageSize: String(size), page: '1' }, { replace: true });
-  };
+    if (!PAGE_SIZES.includes(size)) return
+    setPageSize(size)
+    setPage(1)
+    writeUrl(activeTab, filters, 1, size)
+  }
 
   const actionToast = (title: string) =>
     toast({
       title,
-      className: 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/60 dark:text-green-300',
-    });
+      className:
+        'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/60 dark:text-green-300',
+    })
 
   const handleApproveReview = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'PROCESSING', notes);
-    actionToast('تمت الموافقة على المراجعة');
-    await refresh();
-  };
+    await api.requisitions.updateStatus(id, 'PROCESSING', notes)
+    actionToast('تمت الموافقة على المراجعة')
+    await refresh()
+  }
 
   const handleDeclineReview = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'DECLINED', notes);
-    actionToast('تم رفض المراجعة');
-    await refresh();
-  };
+    await api.requisitions.updateStatus(id, 'DECLINED', notes)
+    actionToast('تم رفض المراجعة')
+    await refresh()
+  }
 
   const handleApproveInternal = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'APPROVED', notes);
-    actionToast('تم الاعتماد الداخلي');
-    await refresh();
-  };
+    await api.requisitions.updateStatus(id, 'APPROVED', notes)
+    actionToast('تم الاعتماد الداخلي')
+    await refresh()
+  }
 
   const handleRequestRevision = async (id: number, notes: string) => {
-    await api.requisitions.updateStatus(id, 'REVISE', notes);
-    actionToast('تم طلب التعديل');
-    await refresh();
-  };
+    await api.requisitions.updateStatus(id, 'REVISE', notes)
+    actionToast('تم طلب التعديل')
+    await refresh()
+  }
 
   return {
     items,
     counts,
+    countsError,
     total,
     page,
     pageSize,
@@ -227,5 +278,5 @@ export function useWorkflow(): UseWorkflowReturn {
     approveInternal: handleApproveInternal,
     requestRevision: handleRequestRevision,
     refresh,
-  };
+  }
 }

@@ -55,11 +55,11 @@ export const TABS: TabConfig[] = [
   },
 ];
 
-export const ACTION_LABELS: Record<WorkflowActionType, { label: string; variant: 'default' | 'destructive' }> = {
+export const ACTION_LABELS: Record<WorkflowActionType, { label: string; variant: 'default' | 'destructive' | 'outline' }> = {
   'approve-review': { label: 'موافقة', variant: 'default' },
   'decline-review': { label: 'رفض', variant: 'destructive' },
   'approve-internal': { label: 'اعتماد', variant: 'default' },
-  'request-revision': { label: 'طلب تعديل', variant: 'destructive' },
+  'request-revision': { label: 'طلب تعديل', variant: 'outline' },
 };
 
 export const EMPTY_MESSAGES: Record<TabKey, string> = {

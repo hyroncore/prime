@@ -34,10 +34,22 @@ public class RequisitionsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] int? plantId = null,
         [FromQuery] string? sectorCode = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
     {
         var query = _db.PurchaseRequisitions.AsQueryable();
         query = ApplyFilters(query, search, plantId, sectorCode, status);
+        if (from.HasValue)
+        {
+            var fromUtc = DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc);
+            query = query.Where(r => r.ReceivedAt >= fromUtc);
+        }
+        if (to.HasValue)
+        {
+            var toUtc = DateTime.SpecifyKind(to.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(r => r.ReceivedAt < toUtc);
+        }
 
         var requisitions = await query
             .Include(r => r.Plant)

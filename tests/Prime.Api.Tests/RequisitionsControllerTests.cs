@@ -98,6 +98,56 @@ public class RequisitionsControllerTests : IDisposable
         return (string?)property.GetValue(value) ?? string.Empty;
     }
 
+    [Fact]
+    public async Task List_FiltersByReceivedDateRange()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        var from = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var insideStart = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0001",
+            ExternalRef = "REF-1",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "Inside start",
+            DueDate = from.AddDays(10),
+            ReceivedAt = from,
+            Status = "REVIEW",
+        };
+        var insideEnd = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0002",
+            ExternalRef = "REF-2",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "Inside end",
+            DueDate = from.AddDays(11),
+            ReceivedAt = from.AddDays(1).AddHours(23),
+            Status = "REVIEW",
+        };
+        var outside = new PurchaseRequisition
+        {
+            Identifier = "TT-03-0003",
+            ExternalRef = "REF-3",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = "Outside range",
+            DueDate = from.AddDays(12),
+            ReceivedAt = from.AddDays(2),
+            Status = "REVIEW",
+        };
+        _db.PurchaseRequisitions.AddRange(insideStart, insideEnd, outside);
+        await _db.SaveChangesAsync();
+
+        var result = await _controller.List(from: from, to: from.AddDays(1));
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var requisitions = Assert.IsType<List<RequisitionDto>>(ok.Value);
+        Assert.Equal(
+            new[] { "TT-03-0001", "TT-03-0002" },
+            requisitions.Select(requisition => requisition.Identifier).OrderBy(identifier => identifier));
+    }
+
     // ---------- Create ----------
 
     [Fact]
