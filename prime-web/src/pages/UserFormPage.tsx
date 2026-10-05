@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import type { UserRole } from '@/lib/types'
 import { api } from '@/lib/api'
@@ -147,100 +148,113 @@ export function UserFormPage() {
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
             noValidate
-            className="space-y-7"
+            className="space-y-5"
           >
-            <div className="space-y-2">
-              <Label htmlFor="user-edit-username" className="text-sm font-bold text-foreground">
-                {USER_EDIT_FORM_TEXT.username}
-              </Label>
-              <Input
-                id="user-edit-username"
-                value={username}
-                dir="ltr"
-                disabled
-                autoComplete="username"
-                className="h-11 text-sm disabled:opacity-70"
-              />
-            </div>
+            <Card className="shadow-none">
+              <CardHeader className="space-y-1 p-5">
+                <CardTitle className="text-sm font-black">{USER_EDIT_FORM_TEXT.identitySection}</CardTitle>
+                <CardDescription className="text-xs">{USER_EDIT_FORM_TEXT.identityDescription}</CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <div className="space-y-2">
+                  <Label htmlFor="user-edit-username" className="text-sm font-bold text-foreground">
+                    {USER_EDIT_FORM_TEXT.username}
+                  </Label>
+                  <Input
+                    id="user-edit-username"
+                    value={username}
+                    dir="ltr"
+                    disabled
+                    autoComplete="username"
+                    className="h-11 text-sm disabled:opacity-70"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field, fieldState }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel className="text-sm font-bold text-foreground">
-                    {USER_EDIT_FORM_TEXT.role}
-                  </FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      onBlur={field.onBlur}
-                      disabled={isSelf}
-                      aria-invalid={fieldState.invalid}
-                      aria-describedby={fieldState.error ? 'user-role-error' : undefined}
-                      className="gap-2"
-                    >
-                      {USER_ROLES.map((role) => (
-                        <label
-                          key={role}
-                          className="flex min-h-16 cursor-pointer items-start gap-3 rounded-lg border border-input p-3 text-start transition-colors hover:bg-muted/40 focus-within:ring-2 focus-within:ring-primary/40 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 motion-reduce:transition-none"
+            <Card className="shadow-none">
+              <CardHeader className="space-y-1 p-5">
+                <CardTitle className="text-sm font-black">{USER_EDIT_FORM_TEXT.accessSection}</CardTitle>
+                <CardDescription className="text-xs">{USER_EDIT_FORM_TEXT.accessDescription}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-5 pt-0">
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field, fieldState }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel className="text-sm font-bold text-foreground">
+                        {USER_EDIT_FORM_TEXT.role}
+                      </FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          onBlur={field.onBlur}
+                          disabled={isSelf}
+                          aria-invalid={fieldState.invalid}
+                          aria-describedby={fieldState.error ? 'user-role-error' : undefined}
+                          className="gap-2"
                         >
-                          <RadioGroupItem
-                            value={role}
-                            className="mt-1"
-                          />
-                          <span className="space-y-1">
-                            <span className="block text-sm font-semibold">
-                              {USER_EDIT_FORM_TEXT.roles[role].label}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {USER_EDIT_FORM_TEXT.roles[role].description}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage id="user-role-error" role="alert" className="text-xs" />
-                </FormItem>
-              )}
-            />
+                          {USER_ROLES.map((role) => (
+                            <label
+                              key={role}
+                              className="flex min-h-16 cursor-pointer items-start gap-3 rounded-lg border border-input p-3 text-start transition-colors hover:bg-muted/40 focus-within:ring-2 focus-within:ring-primary/40 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 motion-reduce:transition-none"
+                            >
+                              <RadioGroupItem value={role} className="mt-1" />
+                              <span className="space-y-1">
+                                <span className="block text-sm font-semibold">
+                                  {USER_EDIT_FORM_TEXT.roles[role].label}
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                  {USER_EDIT_FORM_TEXT.roles[role].description}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage id="user-role-error" role="alert" className="text-xs" />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="active"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-sm font-bold text-foreground">
-                    {USER_EDIT_FORM_TEXT.active}
-                  </FormLabel>
-                  <FormControl>
-                    <div className="flex min-h-11 items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold">
-                          {field.value
-                            ? USER_EDIT_FORM_TEXT.activeOn
-                            : USER_EDIT_FORM_TEXT.activeOff}
-                        </p>
-                        <FormDescription className="text-xs">
-                          {USER_EDIT_FORM_TEXT.inactiveHint}
-                        </FormDescription>
-                      </div>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        onBlur={field.onBlur}
-                        disabled={isSelf}
-                        aria-label={USER_EDIT_FORM_TEXT.active}
-                        className="shrink-0"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage role="alert" className="text-xs" />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="active"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2 border-t border-border pt-5">
+                      <FormLabel className="text-sm font-bold text-foreground">
+                        {USER_EDIT_FORM_TEXT.active}
+                      </FormLabel>
+                      <FormControl>
+                        <div className="flex min-h-11 items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold">
+                              {field.value
+                                ? USER_EDIT_FORM_TEXT.activeOn
+                                : USER_EDIT_FORM_TEXT.activeOff}
+                            </p>
+                            <FormDescription className="text-xs">
+                              {USER_EDIT_FORM_TEXT.inactiveHint}
+                            </FormDescription>
+                          </div>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            onBlur={field.onBlur}
+                            disabled={isSelf}
+                            aria-label={USER_EDIT_FORM_TEXT.active}
+                            className="shrink-0"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage role="alert" className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
             {submitError && (
               <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">

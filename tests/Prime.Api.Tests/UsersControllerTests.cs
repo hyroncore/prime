@@ -109,6 +109,27 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task GetById_ReturnsUser()
+    {
+        var created = await CreateUserAsync("user1", displayName: "المستخدم الأول");
+
+        var result = await _controller.GetById(created.Id);
+
+        var user = OkValue(result);
+        Assert.Equal(created.Id, user.Id);
+        Assert.Equal("user1", user.Username);
+        Assert.Equal("المستخدم الأول", user.DisplayName);
+    }
+
+    [Fact]
+    public async Task GetById_UnknownUser_ReturnsNotFound()
+    {
+        var result = await _controller.GetById(999);
+
+        Assert.IsType<NotFoundObjectResult>(result.Result);
+    }
+
+    [Fact]
     public async Task Create_ValidUser_ReturnsUser()
     {
         SetPrincipal(1);

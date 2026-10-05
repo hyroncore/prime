@@ -30,6 +30,15 @@ public class UsersController : ControllerBase
             .Select(u => ToDto(u))
             .ToListAsync());
 
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<UserDto>> GetById(int id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "المستخدم غير موجود" });
+
+        return Ok(ToDto(user));
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create(CreateUserRequest request)
     {
