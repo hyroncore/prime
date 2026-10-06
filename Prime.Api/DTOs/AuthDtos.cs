@@ -11,7 +11,8 @@ public record CreateUserRequest(
     string DisplayName,
     string Role,
     string InitialPassword,
-    bool IsActive = true);
+    bool IsActive = true,
+    int? ManagerId = null);
 
 public record UpdateUserRequest(string DisplayName, string Role, bool IsActive, int? ManagerId = null);
 

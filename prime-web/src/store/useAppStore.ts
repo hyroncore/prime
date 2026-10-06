@@ -370,6 +370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       role: roleMap[data.role],
       initialPassword: data.password,
       isActive: data.active,
+      managerId: data.role === 'standard' && data.managerId ? Number(data.managerId) : null,
     })
   },
 

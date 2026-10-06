@@ -396,6 +396,7 @@ export interface CreateUserRequest {
   role: UserRole
   initialPassword: string
   isActive?: boolean
+  managerId?: number | null
 }
 
 export interface UpdateUserRequest {

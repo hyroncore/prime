@@ -24,6 +24,7 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import { USER_EDIT_FORM_TEXT } from '@/components/users/userEditFormConstants'
 import { userEditSchema, type UserEditFormValues } from '@/components/users/userEditSchema'
+import { ManagerAssignmentSelect } from '@/components/users/ManagerAssignmentSelect'
 
 const USER_ROLES: UserRole[] = ['User', 'Manager', 'Admin']
 
@@ -46,12 +47,14 @@ export function UserFormPage() {
     defaultValues: {
       role: 'User',
       active: true,
+      managerId: '',
     },
     mode: 'onTouched',
     reValidateMode: 'onChange',
     shouldFocusError: true,
   })
   const { isSubmitting } = form.formState
+  const role = form.watch('role')
 
   useEffect(() => {
     let cancelled = false
@@ -66,6 +69,7 @@ export function UserFormPage() {
         form.reset({
           role: user.role,
           active: user.isActive,
+          managerId: user.managerId === null ? '' : String(user.managerId),
         })
       } catch (error) {
         if (!cancelled) {
@@ -97,6 +101,9 @@ export function UserFormPage() {
         displayName: username,
         role: values.role,
         isActive: values.active,
+        managerId: values.role === 'User' && values.managerId
+          ? Number(values.managerId)
+          : null,
       })
       toast({
         title: USER_EDIT_FORM_TEXT.saved,
@@ -218,6 +225,32 @@ export function UserFormPage() {
                     </FormItem>
                   )}
                 />
+
+                {role === 'User' && (
+                  <FormField
+                    control={form.control}
+                    name="managerId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <ManagerAssignmentSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          copy={{
+                            label: USER_EDIT_FORM_TEXT.manager,
+                            placeholder: USER_EDIT_FORM_TEXT.managerPlaceholder,
+                            loading: USER_EDIT_FORM_TEXT.managerLoading,
+                            unassigned: USER_EDIT_FORM_TEXT.managerUnassigned,
+                            hint: USER_EDIT_FORM_TEXT.managerHint,
+                            loadFailed: USER_EDIT_FORM_TEXT.managerLoadFailed,
+                            retry: USER_EDIT_FORM_TEXT.managerRetry,
+                            noneAvailable: USER_EDIT_FORM_TEXT.managerNoneAvailable,
+                          }}
+                        />
+                        <FormMessage role="alert" className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <FormField
                   control={form.control}

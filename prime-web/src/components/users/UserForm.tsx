@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/store/useAppStore'
 import { USER_FORM_TEXT } from './userFormConstants'
 import { userSchema, type UserFormValues } from './userSchema'
+import { ManagerAssignmentSelect } from './ManagerAssignmentSelect'
 
 export function UserForm({ onCancel }: { onCancel: () => void }) {
   const createUser = useAppStore((state) => state.createUser)
@@ -32,6 +33,7 @@ export function UserForm({ onCancel }: { onCancel: () => void }) {
       password: '',
       role: 'standard',
       active: true,
+      managerId: '',
     },
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -39,6 +41,7 @@ export function UserForm({ onCancel }: { onCancel: () => void }) {
   })
   const { isSubmitting } = form.formState
   const password = form.watch('password')
+  const role = form.watch('role')
 
   const handleSubmit = async (values: UserFormValues) => {
     try {
@@ -215,6 +218,32 @@ export function UserForm({ onCancel }: { onCancel: () => void }) {
                 </FormItem>
               )}
             />
+
+            {role === 'standard' && (
+              <FormField
+                control={form.control}
+                name="managerId"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <ManagerAssignmentSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      copy={{
+                        label: USER_FORM_TEXT.manager,
+                        placeholder: USER_FORM_TEXT.managerPlaceholder,
+                        loading: USER_FORM_TEXT.managerLoading,
+                        unassigned: USER_FORM_TEXT.managerUnassigned,
+                        hint: USER_FORM_TEXT.managerHint,
+                        loadFailed: USER_FORM_TEXT.managerLoadFailed,
+                        retry: USER_FORM_TEXT.managerRetry,
+                        noneAvailable: USER_FORM_TEXT.managerNoneAvailable,
+                      }}
+                    />
+                    <FormMessage role="alert" className="text-xs" />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

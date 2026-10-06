@@ -8,6 +8,7 @@ export const userEditSchema = z.object({
   active: z.boolean({
     required_error: USER_EDIT_FORM_TEXT.activeRequired,
   }),
+  managerId: z.string(),
 })
 
 export type UserEditFormValues = z.infer<typeof userEditSchema>

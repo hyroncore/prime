@@ -28,6 +28,14 @@ export const USER_FORM_TEXT = {
     number: 'رقم واحد على الأقل',
   },
   role: 'الدور',
+  manager: 'المدير المسؤول',
+  managerPlaceholder: 'اختر المدير المسؤول',
+  managerLoading: 'جارٍ تحميل المديرين…',
+  managerUnassigned: 'بدون مدير مسؤول',
+  managerHint: 'سيتمكن المدير المحدد من مراجعة طلبات هذا المستخدم.',
+  managerLoadFailed: 'تعذر تحميل قائمة المديرين.',
+  managerRetry: 'إعادة المحاولة',
+  managerNoneAvailable: 'لا يوجد مديرون نشطون. أنشئ حساب مدير أولاً.',
   roles: {
     standard: {
       label: 'مستخدم قياسي',

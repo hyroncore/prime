@@ -56,6 +56,11 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: مدير, مستخدم قياسي" });
         }
 
+        if (!await IsValidManagerAssignmentAsync(role, request.ManagerId))
+        {
+            return BadRequest(new { message = "يجب اختيار مدير نشط للمستخدم القياسي فقط." });
+        }
+
         if (!AuthController.IsValidPassword(request.InitialPassword))
         {
             return BadRequest(new { message = "كلمة المرور الابتدائية يجب ألا تقل عن 8 أحرف" });
@@ -72,6 +77,7 @@ public class UsersController : ControllerBase
             DisplayName = displayName,
             Role = role,
             IsActive = request.IsActive,
+            ManagerId = request.ManagerId,
             PasswordHash = _hasher.HashPassword(new AppUser(), request.InitialPassword)
         };
         _db.Users.Add(user);
@@ -91,6 +97,11 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "دور غير صالح — الأدوار المتاحة: مدير, مستخدم قياسي" });
         }
 
+        if (!await IsValidManagerAssignmentAsync(role, request.ManagerId))
+        {
+            return BadRequest(new { message = "يجب اختيار مدير نشط للمستخدم القياسي فقط." });
+        }
+
         var currentId = CurrentUserId();
         var demotingOrDeactivatingSelf = currentId == id
             && (role != UserRoles.Admin || !request.IsActive);
@@ -107,7 +118,7 @@ public class UsersController : ControllerBase
         user.DisplayName = request.DisplayName?.Trim() ?? user.DisplayName;
         user.Role = role;
         user.IsActive = request.IsActive;
-        user.ManagerId = request.ManagerId;
+        user.ManagerId = role == UserRoles.User ? request.ManagerId : null;
         await _db.SaveChangesAsync();
         return Ok(ToDto(user));
     }
@@ -154,6 +165,17 @@ public class UsersController : ControllerBase
     {
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(idClaim, out var id) ? id : null;
+    }
+
+    private Task<bool> IsValidManagerAssignmentAsync(string role, int? managerId)
+    {
+        if (managerId is null) return Task.FromResult(true);
+        if (role != UserRoles.User) return Task.FromResult(false);
+
+        return _db.Users.AnyAsync(u =>
+            u.Id == managerId.Value &&
+            u.Role == UserRoles.Manager &&
+            u.IsActive);
     }
 
     private async Task<bool> CanRemoveAdminAsync(AppUser user, bool deactivated, string? role)

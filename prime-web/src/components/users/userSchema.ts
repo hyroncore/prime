@@ -15,6 +15,7 @@ export const userSchema = z.object({
     .regex(/[0-9]/, USER_FORM_TEXT.passwordNumber),
   role: z.enum(['standard', 'admin', 'system_manager']),
   active: z.boolean(),
+  managerId: z.string(),
 })
 
 export type UserFormValues = z.infer<typeof userSchema>

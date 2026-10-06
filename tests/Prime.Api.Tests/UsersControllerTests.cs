@@ -159,6 +159,59 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Create_AssignsStandardUserToActiveManager()
+    {
+        var manager = await CreateUserAsync("manager", role: UserRoles.Manager);
+        SetPrincipal(1);
+
+        var result = await _controller.Create(new CreateUserRequest(
+            "assigned",
+            "مستخدم مرتبط",
+            UserRoles.User,
+            "Passw0rd!",
+            ManagerId: manager.Id));
+
+        var created = OkValue(result);
+        Assert.Equal(manager.Id, created.ManagerId);
+        Assert.Equal(manager.Id, await _db.Users
+            .Where(u => u.Id == created.Id)
+            .Select(u => u.ManagerId)
+            .SingleAsync());
+    }
+
+    [Fact]
+    public async Task Create_RejectsAssignmentToNonManager()
+    {
+        var otherUser = await CreateUserAsync("other");
+        SetPrincipal(1);
+
+        var result = await _controller.Create(new CreateUserRequest(
+            "assigned",
+            "مستخدم",
+            UserRoles.User,
+            "Passw0rd!",
+            ManagerId: otherUser.Id));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Create_RejectsManagerAssignmentForNonStandardUser()
+    {
+        var manager = await CreateUserAsync("manager", role: UserRoles.Manager);
+        SetPrincipal(1);
+
+        var result = await _controller.Create(new CreateUserRequest(
+            "another-manager",
+            "مدير",
+            UserRoles.Manager,
+            "Passw0rd!",
+            ManagerId: manager.Id));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
     public async Task Create_DuplicateUsername_Returns409()
     {
         await CreateUserAsync("dup");
@@ -202,6 +255,39 @@ public class UsersControllerTests : IDisposable
         Assert.Equal("اسم معدل", updated.DisplayName);
         Assert.Equal(UserRoles.Admin, updated.Role);
         Assert.False(updated.IsActive);
+    }
+
+    [Fact]
+    public async Task Update_AssignsStandardUserToActiveManager()
+    {
+        var user = await CreateUserAsync("user");
+        var manager = await CreateUserAsync("manager", role: UserRoles.Manager);
+        SetPrincipal(999);
+
+        var result = await _controller.Update(user.Id, new UpdateUserRequest(
+            user.DisplayName,
+            UserRoles.User,
+            true,
+            manager.Id));
+
+        Assert.Equal(manager.Id, OkValue(result).ManagerId);
+    }
+
+    [Fact]
+    public async Task Update_ClearsManagerAssignmentWhenChangingRoleFromStandardUser()
+    {
+        var manager = await CreateUserAsync("manager", role: UserRoles.Manager);
+        var user = await CreateUserAsync("user");
+        user.ManagerId = manager.Id;
+        await _db.SaveChangesAsync();
+        SetPrincipal(1);
+
+        var result = await _controller.Update(user.Id, new UpdateUserRequest(
+            user.DisplayName,
+            UserRoles.Manager,
+            true));
+
+        Assert.Null(OkValue(result).ManagerId);
     }
 
     [Fact]
