@@ -44,7 +44,6 @@ import { useAuthStore } from '@/store/useAuthStore'
 import type { RequisitionDto } from '@/lib/types'
 
 type SortKey = 'identifier' | 'externalRef' | 'plantName' | 'sectorName' | 'title' | 'dueDate' | 'status'
-type SortDir = 'asc' | 'desc'
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'identifier', label: 'المعرف' },
@@ -74,9 +73,14 @@ export function RequisitionsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const requisitions = useAppStore((s) => s.requisitions)
+  const requisitionTotal = useAppStore((s) => s.requisitionTotal)
+  const storedPage = useAppStore((s) => s.requisitionPage)
+  const requisitionSort = useAppStore((s) => s.requisitionSort)
   const loading = useAppStore((s) => s.loading)
   const error = useAppStore((s) => s.error)
   const fetchRequisitions = useAppStore((s) => s.fetchRequisitions)
+  const fetchPlants = useAppStore((s) => s.fetchPlants)
+  const setRequisitionSort = useAppStore((s) => s.setRequisitionSort)
   const plants = useAppStore((s) => s.plants)
   const sectors = useAppStore((s) => s.sectors)
   const filters = useAppStore((s) => s.filters)
@@ -89,8 +93,8 @@ export function RequisitionsPage() {
   const isAdmin = role === 'Admin'
   const canEdit = isAdmin || role === 'Manager'
 
-  const [sort, setSort] = useState<{ key: SortKey; direction: SortDir } | null>(null)
   const [page, setPage] = useState(1)
+  const [optionsError, setOptionsError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<RequisitionDto | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -121,23 +125,25 @@ export function RequisitionsPage() {
   const createdIdentifier = (location.state as { createdIdentifier?: string } | null)?.createdIdentifier
 
   useEffect(() => {
+    void fetchRequisitions(1)
+  }, [fetchRequisitions])
+
+  useEffect(() => {
+    if (plants.length === 0) {
+      void fetchPlants().catch((error: unknown) =>
+        setOptionsError(error instanceof Error ? error.message : 'تعذر تحميل المصانع.'),
+      )
+    }
+  }, [fetchPlants, plants.length])
+
+  useEffect(() => {
     if (!createdIdentifier) return
     successToast(`تم إنشاء الطلب ${createdIdentifier} بنجاح`)
     navigate(location.pathname, { replace: true, state: null })
   }, [createdIdentifier, location.pathname, navigate])
 
-  const sorted = useMemo(() => {
-    if (!sort) return requisitions
-    return [...requisitions].sort((a, b) => {
-      const comparison = String(a[sort.key] ?? '').localeCompare(String(b[sort.key] ?? ''), 'ar', {
-        numeric: true,
-      })
-      return sort.direction === 'asc' ? comparison : -comparison
-    })
-  }, [requisitions, sort])
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
-  const pageRows = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(requisitionTotal / PAGE_SIZE))
+  const pageRows = requisitions
   const statusList = useMemo(
     () => (filters.status ? filters.status.split(',').filter(Boolean) : []),
     [filters.status]
@@ -159,8 +165,12 @@ export function RequisitionsPage() {
   }, [filters])
 
   useEffect(() => {
-    setPage((currentPage) => Math.min(currentPage, totalPages))
-  }, [totalPages])
+    setPage(storedPage)
+  }, [storedPage])
+
+  useEffect(() => {
+    if (page > totalPages) void fetchRequisitions(totalPages)
+  }, [fetchRequisitions, page, totalPages])
 
   const toggleStatus = (value: string) => {
     const next = statusList.includes(value)
@@ -170,12 +180,26 @@ export function RequisitionsPage() {
   }
 
   const handleSort = (key: SortKey) => {
-    setSort((current) => {
-      if (current?.key !== key) return { key, direction: 'asc' }
-      if (current.direction === 'asc') return { key, direction: 'desc' }
-      return null
-    })
+    const current = requisitionSort
+    const next = current?.key === key
+      ? current.direction === 'asc'
+        ? { key, direction: 'desc' as const }
+        : null
+      : { key, direction: 'asc' as const }
+    setRequisitionSort(next)
+    void fetchRequisitions(1)
   }
+
+  const goToPage = (nextPage: number) => {
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages)
+    setPage(safePage)
+    void fetchRequisitions(safePage)
+  }
+
+  const sort = requisitionSort
+
+  const currentRangeStart = requisitionTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const currentRangeEnd = Math.min(page * PAGE_SIZE, requisitionTotal)
 
   const stats = [
     { title: 'إجمالي الطلبات', value: kpiStats?.totalCount, subtitle: 'ضمن النتائج الحالية' },
@@ -327,12 +351,18 @@ export function RequisitionsPage() {
         </div>
       )}
 
+      {optionsError && (
+        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {optionsError}
+        </div>
+      )}
+
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-1 border-b p-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-semibold">قائمة الطلبات</h2>
             <p className="text-sm text-muted-foreground">
-              {numberFormatter.format(requisitions.length)} طلب
+              {numberFormatter.format(requisitionTotal)} طلب
               {hasActiveFilters ? ' مطابق لعوامل التصفية' : ''}
             </p>
           </div>
@@ -373,7 +403,7 @@ export function RequisitionsPage() {
             <div className="overflow-x-auto">
               <Table className="min-w-[1050px]">
                 <caption className="sr-only">
-                  قائمة طلبات الشراء — {sorted.length} طلب، صفحة {page} من {totalPages}
+                  قائمة طلبات الشراء — {numberFormatter.format(requisitionTotal)} طلب، صفحة {page} من {totalPages}
                 </caption>
                 <TableHeader>
                   <TableRow>
@@ -500,15 +530,15 @@ export function RequisitionsPage() {
 
             <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                عرض {sorted.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
-                {Math.min(page * PAGE_SIZE, sorted.length)} من {numberFormatter.format(sorted.length)}
+                عرض {numberFormatter.format(currentRangeStart)}–
+                {numberFormatter.format(currentRangeEnd)} من {numberFormatter.format(requisitionTotal)}
               </p>
               <nav aria-label="التنقل بين صفحات الطلبات" className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   disabled={page <= 1}
-                  onClick={() => setPage((currentPage) => currentPage - 1)}
+                  onClick={() => goToPage(page - 1)}
                   className="min-h-11"
                 >
                   السابق
@@ -520,7 +550,7 @@ export function RequisitionsPage() {
                   type="button"
                   variant="outline"
                   disabled={page >= totalPages}
-                  onClick={() => setPage((currentPage) => currentPage + 1)}
+                  onClick={() => goToPage(page + 1)}
                   className="min-h-11"
                 >
                   التالي

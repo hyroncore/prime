@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { useAppStore } from '@/store/useAppStore'
 import { useToast } from '@/hooks/use-toast'
 import type { RequisitionDto } from '@/lib/types'
 import type { TabKey, WorkflowCounts, WorkflowFilters } from './workflowTypes'
@@ -124,12 +123,13 @@ export function useWorkflow(): UseWorkflowReturn {
             : activeTab === 'internal'
               ? 'INTERNAL_APPROVAL'
               : 'DECLINED,SUBMITTED,WON,LOST',
+        page,
+        pageSize,
       })
       if (sequence !== listSequence.current) return
-      setTotal(response.length)
-      const start = (page - 1) * pageSize
-      setItems(response.slice(start, start + pageSize))
-      const totalPages = Math.max(1, Math.ceil(response.length / pageSize))
+      setTotal(response.totalCount)
+      setItems(response.items)
+      const totalPages = Math.max(1, Math.ceil(response.totalCount / pageSize))
       if (page > totalPages) {
         setPage(totalPages)
         writeUrl(activeTab, filters, totalPages, pageSize)
@@ -161,10 +161,6 @@ export function useWorkflow(): UseWorkflowReturn {
 
   const refresh = useCallback(async () => {
     await Promise.all([fetchList(), fetchCounts()])
-    await Promise.all([
-      useAppStore.getState().fetchRequisitions(),
-      useAppStore.getState().fetchStats(),
-    ])
   }, [fetchCounts, fetchList])
 
   useEffect(() => {

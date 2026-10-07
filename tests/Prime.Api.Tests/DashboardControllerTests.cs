@@ -83,7 +83,7 @@ public class DashboardControllerTests : IDisposable
         _db.Clients.Add(client);
         _db.SaveChanges();
 
-        var plant = new Plant { PlantName = "Test Plant", ShortCode = "TP", ClientId = client.Id };
+        var plant = new Plant { Name = "Test Plant", Code = "TP", ClientId = client.Id };
         _db.Plants.Add(plant);
         _db.SaveChanges();
 
@@ -136,6 +136,72 @@ public class DashboardControllerTests : IDisposable
         var json = System.Text.Json.JsonSerializer.Serialize(value);
         System.Console.WriteLine($"DEBUG: Actual type: {value.GetType()}, Value: {json}");
         throw new InvalidOperationException($"Expected ManagerDashboardStatsDto but got {value.GetType()}: {json}");
+    }
+
+    private void SetCurrentUser(int userId, string role)
+    {
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim(ClaimTypes.Role, role)
+                }, "test"))
+            }
+        };
+    }
+
+    [Fact]
+    public async Task GetStats_ReturnsAggregatedCountsAndBreakdowns()
+    {
+        var result = await _controller.GetStats();
+        var response = Assert.IsAssignableFrom<ObjectResult>(result.Result);
+        Assert.Equal(200, response.StatusCode);
+        var stats = Assert.IsType<DashboardStatsDto>(
+            response.Value);
+
+        Assert.Equal(7, stats.TotalCount);
+        Assert.Equal(5, stats.OpenCount);
+        Assert.Equal(3, stats.ReviewCount);
+        Assert.Equal(1, stats.WonCount);
+        Assert.Equal(1, stats.LostCount);
+        Assert.Equal(7, Assert.Single(stats.SectorBreakdown).Total);
+        Assert.Equal(7, Assert.Single(stats.ClientBreakdown).Total);
+        Assert.Equal(1, Assert.Single(stats.TopClients).WonCount);
+    }
+
+    [Fact]
+    public async Task GetUserStats_ReturnsUserScopedAggregates()
+    {
+        SetCurrentUser(2, "User");
+
+        var result = await _controller.GetUserStats();
+        var response = Assert.IsAssignableFrom<ObjectResult>(result.Result);
+        Assert.Equal(200, response.StatusCode);
+        var stats = Assert.IsType<UserDashboardStatsDto>(
+            response.Value);
+
+        Assert.Equal(2, stats.MyActiveRequisitions);
+        Assert.Equal(1, stats.AwaitingReview);
+        Assert.Equal(1, stats.AwaitingSignOff);
+    }
+
+    [Fact]
+    public async Task GetAdminStats_ReturnsAggregatedUserAndClientCounts()
+    {
+        var result = await _controller.GetAdminStats();
+        var response = Assert.IsAssignableFrom<ObjectResult>(result.Result);
+        Assert.Equal(200, response.StatusCode);
+        var stats = Assert.IsType<AdminDashboardStatsDto>(response.Value);
+
+        Assert.Equal(4, stats.TotalUsers);
+        Assert.Equal(4, stats.ActiveUsers);
+        Assert.Equal(1, stats.ManagerCount);
+        Assert.Equal(3, stats.UserCount);
+        Assert.Equal(1, stats.ActiveClients);
+        Assert.Equal(7, Assert.Single(stats.TopClients).TotalRequisitions);
     }
 
     [Fact]

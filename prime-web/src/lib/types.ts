@@ -52,6 +52,13 @@ export interface RequisitionDto {
   createdById?: number | null
 }
 
+export interface PagedResultDto<T> {
+  items: T[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
 export interface PlantDto {
   id: number
   clientId: number

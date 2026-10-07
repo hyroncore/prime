@@ -36,21 +36,21 @@ public class RequisitionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<RequisitionDto>>> List(
+    public async Task<ActionResult<PagedResultDto<RequisitionDto>>> List(
         [FromQuery] string? search = null,
         [FromQuery] int? plantId = null,
         [FromQuery] string? sectorCode = null,
         [FromQuery] string? status = null,
         [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
+        [FromQuery] DateTime? to = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         var query = _db.PurchaseRequisitions.AsQueryable();
         query = ApplyFilters(query, search, plantId, sectorCode, status);
-        if (User.IsInRole(UserRoles.Manager) && !User.IsInRole(UserRoles.Admin))
-        {
-            var managerId = GetCurrentUserId();
-            query = query.Where(r => r.CreatedBy != null && r.CreatedBy.ManagerId == managerId);
-        }
+        query = ApplyManagerScope(query);
 
         if (from.HasValue)
         {
@@ -63,12 +63,23 @@ public class RequisitionsController : ControllerBase
             query = query.Where(r => r.ReceivedAt < toUtc);
         }
 
-        var requisitions = await query
+        var totalCount = await query.CountAsync();
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        page = Math.Clamp(page, 1, totalPages);
+
+        var orderedQuery = ApplyOrdering(query, sortBy, sortDirection);
+        var requisitions = await orderedQuery
             .Include(r => r.Plant)
-            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return Ok(requisitions.Select(r => ToDto(r)).ToList());
+        return Ok(new PagedResultDto<RequisitionDto>(
+            requisitions.Select(ToDto).ToList(),
+            totalCount,
+            page,
+            pageSize));
     }
 
     [HttpGet("stats")]
@@ -80,20 +91,66 @@ public class RequisitionsController : ControllerBase
     {
         var query = _db.PurchaseRequisitions.AsQueryable();
         query = ApplyFilters(query, search, plantId, sectorCode, status);
+        query = ApplyManagerScope(query);
         var now = DateTime.UtcNow;
         var nowDate = now.Date;
 
-        var requisitions = await query.ToListAsync();
-        var total = requisitions.Count;
-        var open = requisitions.Count(r => OpenStatuses.Contains(r.Status));
-        var overdue = requisitions.Count(r => OpenStatuses.Contains(r.Status) && r.DueDate < nowDate);
-        var won = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));
-        var lost = requisitions.Count(r => r.Status == nameof(RequisitionStatus.LOST));
+        var groupedCounts = await query
+            .GroupBy(r => new { r.Status, IsOverdue = r.DueDate < nowDate })
+            .Select(group => new { group.Key.Status, group.Key.IsOverdue, Count = group.Count() })
+            .ToListAsync();
+        var total = groupedCounts.Sum(group => group.Count);
+        var open = groupedCounts
+            .Where(group => OpenStatuses.Contains(group.Status))
+            .Sum(group => group.Count);
+        var overdue = groupedCounts
+            .Where(group => group.IsOverdue && OpenStatuses.Contains(group.Status))
+            .Sum(group => group.Count);
+        var won = groupedCounts.Where(group => group.Status == nameof(RequisitionStatus.WON)).Sum(group => group.Count);
+        var lost = groupedCounts.Where(group => group.Status == nameof(RequisitionStatus.LOST)).Sum(group => group.Count);
 
         var decided = won + lost;
         var winRate = decided == 0 ? 0 : Math.Round((double)won / decided * 100, 1);
 
         return Ok(new RequisitionStatsDto(total, open, overdue, won, lost, winRate));
+    }
+
+    private IQueryable<PurchaseRequisition> ApplyManagerScope(IQueryable<PurchaseRequisition> query)
+    {
+        if (User.IsInRole(UserRoles.Manager) && !User.IsInRole(UserRoles.Admin))
+        {
+            var managerId = GetCurrentUserId();
+            query = query.Where(r => r.CreatedBy != null && r.CreatedBy.ManagerId == managerId);
+        }
+
+        return query;
+    }
+
+    private static IOrderedQueryable<PurchaseRequisition> ApplyOrdering(
+        IQueryable<PurchaseRequisition> query,
+        string? sortBy,
+        string? sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        return (sortBy?.ToLowerInvariant(), descending) switch
+        {
+            ("identifier", false) => query.OrderBy(r => r.Identifier).ThenBy(r => r.Id),
+            ("identifier", true) => query.OrderByDescending(r => r.Identifier).ThenByDescending(r => r.Id),
+            ("externalref", false) => query.OrderBy(r => r.ExternalRef).ThenBy(r => r.Id),
+            ("externalref", true) => query.OrderByDescending(r => r.ExternalRef).ThenByDescending(r => r.Id),
+            ("plantname", false) => query.OrderBy(r => r.Plant!.Name).ThenBy(r => r.Id),
+            ("plantname", true) => query.OrderByDescending(r => r.Plant!.Name).ThenByDescending(r => r.Id),
+            ("sectorname", false) => query.OrderBy(r => r.SectorCode).ThenBy(r => r.Id),
+            ("sectorname", true) => query.OrderByDescending(r => r.SectorCode).ThenByDescending(r => r.Id),
+            ("title", false) => query.OrderBy(r => r.Title).ThenBy(r => r.Id),
+            ("title", true) => query.OrderByDescending(r => r.Title).ThenByDescending(r => r.Id),
+            ("duedate", false) => query.OrderBy(r => r.DueDate).ThenBy(r => r.Id),
+            ("duedate", true) => query.OrderByDescending(r => r.DueDate).ThenByDescending(r => r.Id),
+            ("status", false) => query.OrderBy(r => r.Status).ThenBy(r => r.Id),
+            ("status", true) => query.OrderByDescending(r => r.Status).ThenByDescending(r => r.Id),
+            (_, true) => query.OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id),
+            _ => query.OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id)
+        };
     }
 
     private static IQueryable<PurchaseRequisition> ApplyFilters(

@@ -13,6 +13,25 @@ namespace Prime.Api.Controllers;
 [Route("api/dashboard")]
 public class DashboardController : ControllerBase
 {
+    private static readonly List<string> OpenStatuses = new()
+    {
+        nameof(RequisitionStatus.NEW),
+        nameof(RequisitionStatus.REVIEW),
+        nameof(RequisitionStatus.PROCESSING),
+        nameof(RequisitionStatus.MANAGER_REVIEW),
+        nameof(RequisitionStatus.READY_FOR_APPROVAL),
+        nameof(RequisitionStatus.INTERNAL_APPROVAL),
+        nameof(RequisitionStatus.APPROVED),
+        nameof(RequisitionStatus.SUBMITTED),
+        nameof(RequisitionStatus.REVISE)
+    };
+    private static readonly List<string> AdminActiveClientStatuses = new()
+    {
+        nameof(RequisitionStatus.NEW),
+        nameof(RequisitionStatus.REVIEW),
+        nameof(RequisitionStatus.PROCESSING)
+    };
+
     private readonly PrimeDbContext _db;
     private readonly ILogger<DashboardController> _logger;
 
@@ -27,146 +46,123 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            var requisitions = await _db.PurchaseRequisitions
-                .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client)
+            var statusCounts = await _db.PurchaseRequisitions
+                .GroupBy(r => r.Status)
+                .Select(group => new { Status = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(group => group.Status, group => group.Count);
+            int CountStatus(string status) => statusCounts.GetValueOrDefault(status);
+
+            var openCount = OpenStatuses.Sum(CountStatus);
+            var newCount = CountStatus(nameof(RequisitionStatus.NEW));
+            var reviewCount = CountStatus(nameof(RequisitionStatus.REVIEW));
+            var processingCount = CountStatus(nameof(RequisitionStatus.PROCESSING));
+            var managerReviewCount = CountStatus(nameof(RequisitionStatus.MANAGER_REVIEW));
+            var readyForApprovalCount = CountStatus(nameof(RequisitionStatus.READY_FOR_APPROVAL));
+            var internalApprovalCount = CountStatus(nameof(RequisitionStatus.INTERNAL_APPROVAL));
+            var approvedCount = CountStatus(nameof(RequisitionStatus.APPROVED));
+            var reviseCount = CountStatus(nameof(RequisitionStatus.REVISE));
+            var submittedCount = CountStatus(nameof(RequisitionStatus.SUBMITTED));
+            var wonCount = CountStatus(nameof(RequisitionStatus.WON));
+            var lostCount = CountStatus(nameof(RequisitionStatus.LOST));
+            var declinedCount = CountStatus(nameof(RequisitionStatus.DECLINED));
+            var totalCount = statusCounts.Values.Sum();
+            var decided = wonCount + lostCount;
+            var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
+            var now = DateTime.UtcNow;
+
+            var overdueQuery = _db.PurchaseRequisitions
+                .Where(r => OpenStatuses.Contains(r.Status) && r.DueDate < now.Date);
+            var overdueCount = await overdueQuery.CountAsync();
+            var overdueRows = await overdueQuery
+                .OrderBy(r => r.DueDate)
+                .Take(10)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Identifier,
+                    r.Title,
+                    ClientName = r.Plant!.Client!.Name,
+                    PlantName = r.Plant.Name,
+                    r.DueDate,
+                    r.Status
+                })
                 .ToListAsync();
-
-        var openStatuses = new[]
-        {
-            nameof(RequisitionStatus.NEW),
-            nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING),
-            nameof(RequisitionStatus.MANAGER_REVIEW),
-            nameof(RequisitionStatus.READY_FOR_APPROVAL),
-            nameof(RequisitionStatus.INTERNAL_APPROVAL),
-            nameof(RequisitionStatus.APPROVED),
-            nameof(RequisitionStatus.SUBMITTED),
-            nameof(RequisitionStatus.REVISE)
-        };
-
-        var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
-        var newCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.NEW));
-        var reviewCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.REVIEW));
-        var processingCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.PROCESSING));
-        var managerReviewCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.MANAGER_REVIEW));
-        var readyForApprovalCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.READY_FOR_APPROVAL));
-        var internalApprovalCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.INTERNAL_APPROVAL));
-        var approvedCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.APPROVED));
-        var reviseCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.REVISE));
-        var submittedCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.SUBMITTED));
-        var wonCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));
-        var lostCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.LOST));
-        var declinedCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.DECLINED));
-        var totalCount = requisitions.Count;
-
-        var decided = wonCount + lostCount;
-        var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
-
-        var now = DateTime.UtcNow;
-
-        var overdueCount = requisitions.Count(
-            r => openStatuses.Contains(r.Status) && r.DueDate < now.Date);
-
-        var overdue = requisitions
-            .Where(r => openStatuses.Contains(r.Status))
-            .Where(r => r.DueDate < now.Date)
-            .Select(r => new UrgentRequisitionDto(
+            var overdue = overdueRows.Select(r => new UrgentRequisitionDto(
                 r.Id,
                 r.Identifier,
                 r.Title,
-                r.Plant?.Client?.Name ?? "—",
-                r.Plant?.Name ?? "—",
+                r.ClientName,
+                r.PlantName,
                 r.DueDate,
                 r.Status,
-                (int)Math.Ceiling((r.DueDate - now).TotalDays)))
-            .OrderBy(u => u.DueDate)
-            .Take(10)
-            .ToList();
+                (int)Math.Ceiling((r.DueDate - now).TotalDays))).ToList();
 
-        var sectorBreakdown = requisitions
-            .GroupBy(r => r.SectorCode)
-            .Select(g => new SectorBreakdownDto(
-                g.Key,
-                Sectors.GetName(g.Key),
-                g.Count(),
-                g.Count(r => openStatuses.Contains(r.Status))))
-            .OrderByDescending(s => s.Total)
-            .ToList();
+            var sectorRows = await _db.PurchaseRequisitions
+                .GroupBy(r => r.SectorCode)
+                .Select(group => new
+                {
+                    SectorCode = group.Key,
+                    Total = group.Count(),
+                    Open = group.Count(r => OpenStatuses.Contains(r.Status))
+                })
+                .OrderByDescending(group => group.Total)
+                .ToListAsync();
+            var sectorBreakdown = sectorRows.Select(group => new SectorBreakdownDto(
+                group.SectorCode,
+                Sectors.GetName(group.SectorCode),
+                group.Total,
+                group.Open)).ToList();
 
-        var clientBreakdown = requisitions
-            .Where(r => r.Plant != null && r.Plant.Client != null)
-            .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
-            .Select(g => new ClientBreakdownDto(
-                g.Key.ClientId,
-                g.Key.Name,
-                g.Count(),
-                g.Count(r => openStatuses.Contains(r.Status)),
-                g.Count(r => r.Status == nameof(RequisitionStatus.WON))))
-            .OrderByDescending(c => c.Total)
-            .ToList();
+            var clientRows = await _db.PurchaseRequisitions
+                .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
+                .Select(group => new
+                {
+                    group.Key.ClientId,
+                    ClientName = group.Key.Name,
+                    Total = group.Count(),
+                    Open = group.Count(r => OpenStatuses.Contains(r.Status)),
+                    Won = group.Count(r => r.Status == nameof(RequisitionStatus.WON))
+                })
+                .OrderByDescending(group => group.Total)
+                .ToListAsync();
+            var clientBreakdown = clientRows.Select(group => new ClientBreakdownDto(
+                group.ClientId,
+                group.ClientName,
+                group.Total,
+                group.Open,
+                group.Won)).ToList();
 
-        // Admin-specific stats
-        var totalUsers = await _db.Users.CountAsync();
-        var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
-        var totalClients = await _db.Clients.CountAsync();
-        
-        var activeClients = requisitions
-            .Where(r => openStatuses.Contains(r.Status) && r.Plant != null)
-            .Select(r => r.Plant!.ClientId)
-            .Distinct()
-            .Count();
+            var totalUsers = await _db.Users.CountAsync();
+            var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
+            var totalClients = await _db.Clients.CountAsync();
+            var activeClients = await _db.PurchaseRequisitions
+                .Where(r => OpenStatuses.Contains(r.Status))
+                .Select(r => r.Plant!.ClientId)
+                .Distinct()
+                .CountAsync();
+            var recentUsers = await _db.Users
+                .OrderByDescending(u => u.CreatedAt)
+                .Take(5)
+                .Select(u => new RecentUserDto(
+                    u.Id,
+                    u.Username,
+                    u.DisplayName,
+                    u.Role,
+                    u.IsActive,
+                    u.LastLoginAt))
+                .ToListAsync();
+            var topClients = clientRows.Take(5).Select(group => new TopClientDto(
+                group.ClientId,
+                group.ClientName,
+                group.Total,
+                group.Won)).ToList();
 
-        var recentUsers = await _db.Users
-            .OrderByDescending(u => u.CreatedAt)
-            .Take(5)
-            .Select(u => new RecentUserDto(
-                u.Id,
-                u.Username,
-                u.DisplayName,
-                u.Role,
-                u.IsActive,
-                u.LastLoginAt))
-            .ToListAsync();
-
-        var topClients = requisitions
-            .Where(r => r.Plant != null && r.Plant.Client != null)
-            .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
-            .Select(g => new TopClientDto(
-                g.Key.ClientId,
-                g.Key.Name,
-                g.Count(),
-                g.Count(r => r.Status == nameof(RequisitionStatus.WON))))
-            .OrderByDescending(c => c.TotalRequisitions)
-            .Take(5)
-            .ToList();
-
-        return Ok(new DashboardStatsDto(
-            openCount,
-            newCount,
-            reviewCount,
-            processingCount,
-            managerReviewCount,
-            readyForApprovalCount,
-            internalApprovalCount,
-            approvedCount,
-            reviseCount,
-            overdueCount,
-            submittedCount,
-            wonCount,
-            lostCount,
-            declinedCount,
-            totalCount,
-            winRate,
-            overdue,
-            sectorBreakdown,
-            clientBreakdown,
-            totalUsers,
-            activeUsers,
-            totalClients,
-            activeClients,
-            recentUsers,
-            topClients));
+            return Ok(new DashboardStatsDto(
+                openCount, newCount, reviewCount, processingCount, managerReviewCount,
+                readyForApprovalCount, internalApprovalCount, approvedCount, reviseCount,
+                overdueCount, submittedCount, wonCount, lostCount, declinedCount, totalCount,
+                winRate, overdue, sectorBreakdown, clientBreakdown, totalUsers, activeUsers,
+                totalClients, activeClients, recentUsers, topClients));
         }
         catch (Exception ex)
         {
@@ -183,49 +179,53 @@ public class DashboardController : ControllerBase
         {
             var userId = GetCurrentUserId();
             
-            var requisitions = await _db.PurchaseRequisitions
-                .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client)
-                .Where(r => r.CreatedById == userId)
-                .ToListAsync();
-
-            var openStatuses = new[]
-            {
-                "NEW", "REVIEW", "PROCESSING", "MANAGER_REVIEW",
-                "READY_FOR_APPROVAL", "INTERNAL_APPROVAL", "APPROVED",
-                "SUBMITTED", "REVISE"
-            };
-            var openCount = requisitions.Count(r => openStatuses.Contains(r.Status));
-            var draftCount = requisitions.Count(r => r.Status == "NEW");
-            var awaitingReview = requisitions.Count(r =>
-                r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW");
-            var awaitingSignOff = requisitions.Count(r => r.Status == "INTERNAL_APPROVAL");
-            var reviseCount = requisitions.Count(r => r.Status == "REVISE");
-            var wonCount = requisitions.Count(r => r.Status == "WON");
-            var lostCount = requisitions.Count(r => r.Status == "LOST");
+            var userQuery = _db.PurchaseRequisitions.Where(r => r.CreatedById == userId);
+            var statusCounts = await userQuery
+                .GroupBy(r => r.Status)
+                .Select(group => new { Status = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(group => group.Status, group => group.Count);
+            int CountStatus(string status) => statusCounts.GetValueOrDefault(status);
+            var openCount = OpenStatuses.Sum(CountStatus);
+            var draftCount = CountStatus("NEW");
+            var awaitingReview = CountStatus("REVIEW") + CountStatus("MANAGER_REVIEW");
+            var awaitingSignOff = CountStatus("INTERNAL_APPROVAL");
+            var reviseCount = CountStatus("REVISE");
+            var wonCount = CountStatus("WON");
+            var lostCount = CountStatus("LOST");
 
             var decided = wonCount + lostCount;
             var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
 
             var now = DateTime.UtcNow;
-            var overdueCount = requisitions.Count(r => openStatuses.Contains(r.Status) && r.DueDate < now.Date);
+            var overdueCount = await userQuery.CountAsync(
+                r => OpenStatuses.Contains(r.Status) && r.DueDate < now.Date);
 
-            var actionRequired = requisitions
+            var actionRequiredRows = await userQuery
                 .Where(r =>
                     r.Status == "REVISE" ||
                     r.Status == "READY_FOR_APPROVAL" ||
                     r.Status == "APPROVED")
-                .Select(r => new UrgentRequisitionDto(
+                .Select(r => new
+                {
                     r.Id,
                     r.Identifier,
                     r.Title,
-                    r.Plant?.Client?.Name ?? "—",
-                    r.Plant?.Name ?? "—",
+                    ClientName = r.Plant!.Client!.Name,
+                    PlantName = r.Plant.Name,
                     r.DueDate,
-                    r.Status,
-                    (int)Math.Ceiling((r.DueDate - now).TotalDays)))
-                .OrderBy(u => u.DueDate)
-                .ToList();
+                    r.Status
+                })
+                .OrderBy(r => r.DueDate)
+                .ToListAsync();
+            var actionRequired = actionRequiredRows.Select(r => new UrgentRequisitionDto(
+                r.Id,
+                r.Identifier,
+                r.Title,
+                r.ClientName,
+                r.PlantName,
+                r.DueDate,
+                r.Status,
+                (int)Math.Ceiling((r.DueDate - now).TotalDays))).ToList();
 
             return Ok(new UserDashboardStatsDto(
                 openCount,
@@ -253,33 +253,33 @@ public class DashboardController : ControllerBase
     {
         try
         {
-            const string newStatus = "NEW";
-            const string reviewStatus = "REVIEW";
-            const string processingStatus = "PROCESSING";
             const string adminRole = "Admin";
             const string managerRole = "Manager";
             const string userRole = "User";
 
-            var totalUsers = await _db.Users.CountAsync();
-            var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
+            var usersByRole = await _db.Users
+                .GroupBy(u => u.Role)
+                .Select(group => new
+                {
+                    Role = group.Key,
+                    Total = group.Count(),
+                    Active = group.Count(u => u.IsActive)
+                })
+                .ToDictionaryAsync(group => group.Role);
+            var totalUsers = usersByRole.Values.Sum(group => group.Total);
+            var activeUsers = usersByRole.Values.Sum(group => group.Active);
             var inactiveUsers = totalUsers - activeUsers;
-            var adminCount = await _db.Users.CountAsync(u => u.Role == adminRole);
-            var managerCount = await _db.Users.CountAsync(u => u.Role == managerRole);
-            var userCount = await _db.Users.CountAsync(u => u.Role == userRole);
+            var adminCount = usersByRole.GetValueOrDefault(adminRole)?.Total ?? 0;
+            var managerCount = usersByRole.GetValueOrDefault(managerRole)?.Total ?? 0;
+            var userCount = usersByRole.GetValueOrDefault(userRole)?.Total ?? 0;
             var totalClients = await _db.Clients.CountAsync();
             var totalPlants = await _db.Plants.CountAsync();
-            
-            var requisitions = await _db.PurchaseRequisitions
-                .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client)
-                .ToListAsync();
 
-            var openStatuses = new[] { newStatus, reviewStatus, processingStatus };
-            var activeClients = requisitions
-                .Where(r => openStatuses.Contains(r.Status) && r.Plant != null)
+            var activeClients = await _db.PurchaseRequisitions
+                .Where(r => AdminActiveClientStatuses.Contains(r.Status))
                 .Select(r => r.Plant!.ClientId)
                 .Distinct()
-                .Count();
+                .CountAsync();
 
             var recentUsers = await _db.Users
                 .OrderByDescending(u => u.CreatedAt)
@@ -293,17 +293,23 @@ public class DashboardController : ControllerBase
                     u.LastLoginAt))
                 .ToListAsync();
 
-            var topClients = requisitions
-                .Where(r => r.Plant != null && r.Plant.Client != null)
+            var topClients = await _db.PurchaseRequisitions
                 .GroupBy(r => new { r.Plant!.ClientId, r.Plant.Client!.Name })
-                .Select(g => new TopClientDto(
-                    g.Key.ClientId,
-                    g.Key.Name,
-                    g.Count(),
-                    g.Count(r => r.Status == "WON")))
-                .OrderByDescending(c => c.TotalRequisitions)
+                .Select(group => new
+                {
+                    group.Key.ClientId,
+                    ClientName = group.Key.Name,
+                    Total = group.Count(),
+                    Won = group.Count(r => r.Status == "WON")
+                })
+                .OrderByDescending(group => group.Total)
                 .Take(5)
-                .ToList();
+                .Select(group => new TopClientDto(
+                    group.ClientId,
+                    group.ClientName,
+                    group.Total,
+                    group.Won))
+                .ToListAsync();
 
             return Ok(new AdminDashboardStatsDto(
                 totalUsers,
@@ -334,10 +340,6 @@ public class DashboardController : ControllerBase
             var userId = GetCurrentUserId();
             var isAdmin = User.IsInRole(UserRoles.Admin);
 
-            var managerActionableStatuses = new[]
-            {
-                "REVIEW", "MANAGER_REVIEW", "INTERNAL_APPROVAL"
-            };
             var teamUsers = await _db.Users
                 .Where(u => u.IsActive
                     && u.Role == UserRoles.User
@@ -345,84 +347,104 @@ public class DashboardController : ControllerBase
                 .ToListAsync();
             var teamUserIds = teamUsers.Select(u => u.Id).ToList();
 
-            IQueryable<PurchaseRequisition> requisitionsQuery = _db.PurchaseRequisitions
-                .Include(r => r.Plant)!
-                    .ThenInclude(p => p!.Client)
-                .Include(r => r.AuditLogs);
+            IQueryable<PurchaseRequisition> requisitionsQuery = _db.PurchaseRequisitions;
             if (!isAdmin)
             {
                 requisitionsQuery = requisitionsQuery
                     .Where(r => r.CreatedById.HasValue && teamUserIds.Contains(r.CreatedById.Value));
             }
-            var teamRequisitions = await requisitionsQuery.ToListAsync();
-            var requisitions = teamRequisitions
-                .Where(r => managerActionableStatuses.Contains(r.Status))
-                .ToList();
 
-            var openStatuses = new[]
-            {
-                "NEW", "REVIEW", "PROCESSING", "MANAGER_REVIEW",
-                "READY_FOR_APPROVAL", "INTERNAL_APPROVAL", "APPROVED",
-                "SUBMITTED", "REVISE"
-            };
-            var pendingReview = requisitions.Count(r =>
-                r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW");
-            var pendingSignOff = requisitions.Count(r => r.Status == "INTERNAL_APPROVAL");
-            var teamVolume = teamRequisitions.Count;
-            var wonCount = teamRequisitions.Count(r => r.Status == "WON");
-            var lostCount = teamRequisitions.Count(r => r.Status == "LOST");
+            var teamCounts = await requisitionsQuery
+                .GroupBy(r => new { r.CreatedById, r.Status })
+                .Select(group => new
+                {
+                    group.Key.CreatedById,
+                    group.Key.Status,
+                    Count = group.Count()
+                })
+                .ToListAsync();
+            int CountFor(int? creatorId, string status) => teamCounts
+                .Where(group => group.CreatedById == creatorId && group.Status == status)
+                .Sum(group => group.Count);
+            var teamVolume = teamCounts.Sum(group => group.Count);
+            var pendingReview = teamCounts
+                .Where(group => group.Status == "REVIEW" || group.Status == "MANAGER_REVIEW")
+                .Sum(group => group.Count);
+            var pendingSignOff = teamCounts
+                .Where(group => group.Status == "INTERNAL_APPROVAL")
+                .Sum(group => group.Count);
+            var wonCount = teamCounts.Where(group => group.Status == "WON").Sum(group => group.Count);
+            var lostCount = teamCounts.Where(group => group.Status == "LOST").Sum(group => group.Count);
             var decided = wonCount + lostCount;
             var winRate = decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1);
 
             var now = DateTime.UtcNow;
 
-            var pendingReviews = requisitions
+            var pendingReviewRows = await requisitionsQuery
                 .Where(r => r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW")
-                .Select(r => new UrgentRequisitionDto(
-                    r.Id, r.Identifier, r.Title, 
-                    r.Plant?.Client?.Name ?? "—", r.Plant?.Name ?? "—",
-                    r.DueDate, r.Status,
-                    (int)Math.Ceiling((r.DueDate - now).TotalDays)))
                 .OrderBy(r => r.DueDate)
-                .ToList();
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Identifier,
+                    r.Title,
+                    ClientName = r.Plant!.Client!.Name,
+                    PlantName = r.Plant.Name,
+                    r.DueDate,
+                    r.Status
+                })
+                .ToListAsync();
+            var pendingReviews = pendingReviewRows.Select(r => new UrgentRequisitionDto(
+                r.Id,
+                r.Identifier,
+                r.Title,
+                r.ClientName,
+                r.PlantName,
+                r.DueDate,
+                r.Status,
+                (int)Math.Ceiling((r.DueDate - now).TotalDays))).ToList();
 
-            var pendingSignOffs = requisitions
+            var pendingSignOffs = await requisitionsQuery
                 .Where(r => r.Status == "INTERNAL_APPROVAL")
+                .OrderBy(r => r.AuditLogs
+                    .Where(a => a.Action == "InternalApprovalRequested")
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Select(a => (DateTime?)a.CreatedAt)
+                    .FirstOrDefault() ?? r.SubmittedAt ?? r.CreatedAt)
                 .Select(r => new PendingSignOffDto(
-                    r.Id, r.Identifier, r.Title, 
-                    r.Plant?.Name ?? "—", r.Plant?.Client?.Name ?? "—",
+                    r.Id,
+                    r.Identifier,
+                    r.Title,
+                    r.Plant!.Name,
+                    r.Plant.Client!.Name,
                     r.AuditLogs
                         .Where(a => a.Action == "InternalApprovalRequested")
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => (DateTime?)a.CreatedAt)
                         .FirstOrDefault() ?? r.SubmittedAt ?? r.CreatedAt))
-                .OrderBy(r => r.RequestedAt)
-                .ToList();
+                .ToListAsync();
 
-            var teamPerformance = teamUsers
-                .Select(u => {
-                    var userReqs = teamRequisitions
-                        .Where(r => r.CreatedById == u.Id)
-                        .ToList();
-                    var userOpen = userReqs.Count(r => openStatuses.Contains(r.Status));
-                    var userRevise = userReqs.Count(r => r.Status == "REVISE");
-                    var userSubmitted = userReqs.Count(r => r.Status == "SUBMITTED");
-                    var userWon = userReqs.Count(r => r.Status == "WON");
-                    var userLost = userReqs.Count(r => r.Status == "LOST");
-                    var userDecided = userWon + userLost;
-                    var userWinRate = userDecided == 0 ? 0 : Math.Round((double)userWon / userDecided * 100, 1);
+            var teamPerformance = teamUsers.Select(user =>
+            {
+                var userOpen = OpenStatuses.Sum(status => CountFor(user.Id, status));
+                var userRevise = CountFor(user.Id, "REVISE");
+                var userSubmitted = CountFor(user.Id, "SUBMITTED");
+                var userWon = CountFor(user.Id, "WON");
+                var userLost = CountFor(user.Id, "LOST");
+                var userDecided = userWon + userLost;
+                var userWinRate = userDecided == 0
+                    ? 0
+                    : Math.Round((double)userWon / userDecided * 100, 1);
 
-                    return new TeamMemberStatsDto(
-                        u.Id,
-                        u.DisplayName,
-                        userOpen,
-                        userRevise,
-                        userSubmitted,
-                        userWon,
-                        userWinRate
-                    );
-                })
-                .ToList();
+                return new TeamMemberStatsDto(
+                    user.Id,
+                    user.DisplayName,
+                    userOpen,
+                    userRevise,
+                    userSubmitted,
+                    userWon,
+                    userWinRate);
+            }).ToList();
 
             return Ok(new ManagerDashboardStatsDto(
                 teamVolume,

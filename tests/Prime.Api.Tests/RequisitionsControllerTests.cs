@@ -81,8 +81,8 @@ public class RequisitionsControllerTests : IDisposable
         var client = new Client { Name = "جهة اختبار" };
         var plant = new Plant
         {
-            PlantName = "مصنع اختبار",
-            ShortCode = shortCode,
+            Name = "مصنع اختبار",
+            Code = shortCode,
             Client = client,
         };
         client.Plants.Add(plant);
@@ -158,10 +158,151 @@ public class RequisitionsControllerTests : IDisposable
         var result = await _controller.List(from: from, to: from.AddDays(1));
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var requisitions = Assert.IsType<List<RequisitionDto>>(ok.Value);
+        var requisitions = Assert.IsType<PagedResultDto<RequisitionDto>>(ok.Value);
         Assert.Equal(
             new[] { "TT-03-0001", "TT-03-0002" },
-            requisitions.Select(requisition => requisition.Identifier).OrderBy(identifier => identifier));
+            requisitions.Items.Select(requisition => requisition.Identifier).OrderBy(identifier => identifier));
+    }
+
+    [Fact]
+    public async Task List_ReturnsRequestedPageWithTotalAndCapsPageSize()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        var createdAt = DateTime.UtcNow;
+        var rows = Enumerable.Range(1, 3).Select(index => new PurchaseRequisition
+        {
+            Identifier = $"TT-03-000{index}",
+            ExternalRef = $"REF-{index}",
+            PlantId = plantId,
+            SectorCode = "03",
+            Title = $"Request {index}",
+            DueDate = createdAt.AddDays(index),
+            CreatedAt = createdAt.AddMinutes(index),
+            Status = "REVIEW",
+            CreatedById = 1
+        });
+        _db.PurchaseRequisitions.AddRange(rows);
+        await _db.SaveChangesAsync();
+
+        var pageResult = await _controller.List(page: 2, pageSize: 1);
+        var page = Assert.IsType<PagedResultDto<RequisitionDto>>(
+            Assert.IsType<OkObjectResult>(pageResult.Result).Value);
+        Assert.Equal(3, page.TotalCount);
+        Assert.Equal(2, page.Page);
+        Assert.Equal(1, page.PageSize);
+        Assert.Equal("TT-03-0002", Assert.Single(page.Items).Identifier);
+
+        var cappedResult = await _controller.List(pageSize: 500);
+        var capped = Assert.IsType<PagedResultDto<RequisitionDto>>(
+            Assert.IsType<OkObjectResult>(cappedResult.Result).Value);
+        Assert.Equal(100, capped.PageSize);
+        Assert.Equal(3, capped.Items.Count);
+    }
+
+    [Fact]
+    public async Task List_AndStats_RestrictManagerToAssignedUsers()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        _db.Users.AddRange(
+            new AppUser
+            {
+                Id = 2,
+                Username = "manager",
+                DisplayName = "Manager",
+                Role = "Manager",
+                PasswordHash = "dummy",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new AppUser
+            {
+                Id = 3,
+                Username = "assigned",
+                DisplayName = "Assigned user",
+                Role = "User",
+                PasswordHash = "dummy",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                ManagerId = 2
+            });
+        await _db.SaveChangesAsync();
+        _db.PurchaseRequisitions.AddRange(
+            new PurchaseRequisition
+            {
+                Identifier = "TT-03-0001",
+                ExternalRef = "REF-1",
+                PlantId = plantId,
+                SectorCode = "03",
+                Title = "Assigned",
+                DueDate = DateTime.UtcNow.AddDays(1),
+                Status = "REVIEW",
+                CreatedById = 3
+            },
+            new PurchaseRequisition
+            {
+                Identifier = "TT-03-0002",
+                ExternalRef = "REF-2",
+                PlantId = plantId,
+                SectorCode = "03",
+                Title = "Unassigned",
+                DueDate = DateTime.UtcNow.AddDays(1),
+                Status = "REVIEW",
+                CreatedById = 1
+            });
+        await _db.SaveChangesAsync();
+        SetCurrentUser(2, "Manager");
+
+        var listResult = await _controller.List();
+        var page = Assert.IsType<PagedResultDto<RequisitionDto>>(
+            Assert.IsType<OkObjectResult>(listResult.Result).Value);
+        Assert.Equal(1, page.TotalCount);
+        Assert.Equal("TT-03-0001", Assert.Single(page.Items).Identifier);
+
+        var statsResult = await _controller.Stats();
+        var stats = Assert.IsType<RequisitionStatsDto>(
+            Assert.IsType<OkObjectResult>(statsResult.Result).Value);
+        Assert.Equal(1, stats.TotalCount);
+    }
+
+    [Fact]
+    public async Task ClientAndPlantLists_ReturnAggregatedRequisitionCounts()
+    {
+        var plantId = await SeedClientAndPlantAsync();
+        _db.PurchaseRequisitions.AddRange(
+            new PurchaseRequisition
+            {
+                Identifier = "TT-03-0001",
+                ExternalRef = "REF-1",
+                PlantId = plantId,
+                SectorCode = "03",
+                Title = "Open request",
+                DueDate = DateTime.UtcNow.AddDays(2),
+                Status = "REVIEW"
+            },
+            new PurchaseRequisition
+            {
+                Identifier = "TT-03-0002",
+                ExternalRef = "REF-2",
+                PlantId = plantId,
+                SectorCode = "03",
+                Title = "Won request",
+                DueDate = DateTime.UtcNow.AddDays(2),
+                Status = "WON"
+            });
+        await _db.SaveChangesAsync();
+
+        var clientResult = await new ClientsController(_db).List();
+        var client = Assert.Single(Assert.IsType<List<ClientDto>>(
+            Assert.IsType<OkObjectResult>(clientResult.Result).Value));
+        Assert.Equal(1, client.OpenRequisitions);
+        Assert.Equal(1, client.TotalWon);
+
+        var plantResult = await new PlantsController(_db).List();
+        var plant = Assert.Single(Assert.IsType<List<PlantDetailDto>>(
+            Assert.IsType<OkObjectResult>(plantResult.Result).Value));
+        Assert.Equal(2, plant.TotalRequisitions);
+        Assert.Equal(1, plant.OpenRequisitions);
+        Assert.Equal(1, plant.WonCount);
     }
 
     // ---------- Create ----------

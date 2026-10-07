@@ -25,6 +25,15 @@ interface RequisitionFilters {
   status: string | null
 }
 
+type RequisitionSortKey =
+  | 'identifier'
+  | 'externalRef'
+  | 'plantName'
+  | 'sectorName'
+  | 'title'
+  | 'dueDate'
+  | 'status'
+
 interface AppState {
   loading: boolean
   error: string | null
@@ -32,15 +41,20 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
 
-  stats: DashboardStatsDto | null
   kpiStats: RequisitionStatsDto | null
+  stats: DashboardStatsDto | null
   userStats: UserDashboardStatsDto | null
   managerStats: ManagerDashboardStatsDto | null
   adminStats: AdminDashboardStatsDto | null
   permissionMatrix: PermissionMatrixDto | null
   requisitions: RequisitionDto[]
+  requisitionTotal: number
+  requisitionPage: number
+  requisitionSort: { key: RequisitionSortKey; direction: 'asc' | 'desc' } | null
   clients: ClientDto[]
+  clientsLoading: boolean
   plants: PlantDetailDto[]
+  plantsLoading: boolean
   sectors: SectorDto[]
 
   activeRequisition: RequisitionDto | null
@@ -51,6 +65,7 @@ interface AppState {
   editingClient: ClientDto | null
 
   filters: RequisitionFilters
+  setRequisitionSort: (sort: { key: RequisitionSortKey; direction: 'asc' | 'desc' } | null) => void
 
   notifications: NotificationDto[]
   notificationUnread: number
@@ -58,9 +73,8 @@ interface AppState {
   markNotificationRead: (id: number) => Promise<void>
   markAllNotificationsRead: () => Promise<void>
 
-  fetchAll: () => Promise<void>
+  fetchRequisitions: (page?: number) => Promise<void>
   fetchStats: () => Promise<void>
-  fetchRequisitions: () => Promise<void>
   fetchClients: () => Promise<void>
   fetchPlants: () => Promise<void>
   fetchSectors: () => Promise<void>
@@ -107,7 +121,9 @@ const initialFilters: RequisitionFilters = {
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let listSeq = 0
-let allSeq = 0
+let requisitionRequest: { key: string; promise: Promise<void> } | null = null
+let clientRequest: Promise<void> | null = null
+let plantRequest: Promise<void> | null = null
 
 export const useAppStore = create<AppState>((set, get) => ({
   loading: false,
@@ -116,15 +132,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-  stats: null,
   kpiStats: null,
+  stats: null,
   userStats: null,
   managerStats: null,
   adminStats: null,
   permissionMatrix: null,
   requisitions: [],
+  requisitionTotal: 0,
+  requisitionPage: 1,
+  requisitionSort: null,
   clients: [],
+  clientsLoading: false,
   plants: [],
+  plantsLoading: false,
   sectors: SECTORS,
 
   activeRequisition: null,
@@ -135,49 +156,98 @@ export const useAppStore = create<AppState>((set, get) => ({
   editingClient: null,
 
   filters: { ...initialFilters },
+  setRequisitionSort: (requisitionSort) => set({ requisitionSort, requisitionPage: 1 }),
 
   notifications: [],
   notificationUnread: 0,
 
   fetchStats: async () => {
-    const stats = await api.dashboard.stats()
-    set({ stats })
+    set({ stats: await api.dashboard.stats() })
   },
 
-  fetchRequisitions: async () => {
-    const { filters } = get()
+  fetchRequisitions: async (requestedPage) => {
+    const { filters, requisitionPage, requisitionSort } = get()
+    const page = requestedPage ?? requisitionPage
+    const requestKey = JSON.stringify({ filters, page, requisitionSort })
+    if (requisitionRequest?.key === requestKey) return requisitionRequest.promise
+
     const seq = ++listSeq
+    const promise = (async () => {
+      set({ loading: true })
+      try {
+        const [requisitions, kpiStats] = await Promise.all([
+          api.requisitions.list({
+            search: filters.search || undefined,
+            plantId: filters.plantId ?? undefined,
+            sectorCode: filters.sectorCode ?? undefined,
+            status: filters.status ?? undefined,
+            page,
+            pageSize: 10,
+            sortBy: requisitionSort?.key,
+            sortDirection: requisitionSort?.direction,
+          }),
+          api.requisitions.stats({
+            search: filters.search || undefined,
+            plantId: filters.plantId ?? undefined,
+            sectorCode: filters.sectorCode ?? undefined,
+            status: filters.status ?? undefined,
+          }),
+        ])
+        if (seq !== listSeq) return
+        set({
+          requisitions: requisitions.items,
+          requisitionTotal: requisitions.totalCount,
+          requisitionPage: requisitions.page,
+          kpiStats,
+          error: null,
+        })
+      } catch (error) {
+        if (seq !== listSeq) return
+        set({ error: error instanceof Error ? error.message : 'حدث خطأ في تحميل الطلبات' })
+      } finally {
+        if (seq === listSeq) set({ loading: false })
+      }
+    })()
+    requisitionRequest = { key: requestKey, promise }
     try {
-      const [requisitions, kpiStats] = await Promise.all([
-        api.requisitions.list({
-          search: filters.search || undefined,
-          plantId: filters.plantId ?? undefined,
-          sectorCode: filters.sectorCode ?? undefined,
-          status: filters.status ?? undefined,
-        }),
-        api.requisitions.stats({
-          search: filters.search || undefined,
-          plantId: filters.plantId ?? undefined,
-          sectorCode: filters.sectorCode ?? undefined,
-          status: filters.status ?? undefined,
-        }),
-      ])
-      if (seq !== listSeq) return
-      set({ requisitions, kpiStats, error: null })
-    } catch (error) {
-      if (seq !== listSeq) return
-      set({ error: error instanceof Error ? error.message : 'حدث خطأ في تحميل الطلبات' })
+      await promise
+    } finally {
+      if (requisitionRequest?.promise === promise) requisitionRequest = null
     }
   },
 
   fetchClients: async () => {
-    const clients = await api.clients.list()
-    set({ clients })
+    if (clientRequest) return clientRequest
+    clientRequest = (async () => {
+      set({ clientsLoading: true })
+      try {
+        set({ clients: await api.clients.list() })
+      } finally {
+        set({ clientsLoading: false })
+      }
+    })()
+    try {
+      await clientRequest
+    } finally {
+      clientRequest = null
+    }
   },
 
   fetchPlants: async () => {
-    const plants = await api.plants.list()
-    set({ plants })
+    if (plantRequest) return plantRequest
+    plantRequest = (async () => {
+      set({ plantsLoading: true })
+      try {
+        set({ plants: await api.plants.list() })
+      } finally {
+        set({ plantsLoading: false })
+      }
+    })()
+    try {
+      await plantRequest
+    } finally {
+      plantRequest = null
+    }
   },
 
   fetchSectors: async () => {
@@ -186,35 +256,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ sectors })
     } catch {
       // the taxonomy is fixed — keep the built-in constant on failure
-    }
-  },
-
-  fetchAll: async () => {
-    const seq = ++allSeq
-    set({ loading: true, error: null })
-    try {
-      const [stats, requisitions, clients, plants, kpiStats] = await Promise.all([
-        api.dashboard.stats(),
-        api.requisitions.list(),
-        api.clients.list(),
-        api.plants.list(),
-        api.requisitions.stats(),
-      ])
-      const sectors = await api.sectors.list().catch(() => undefined)
-      if (seq !== allSeq) return
-      set({
-        stats,
-        requisitions,
-        clients,
-        plants,
-        kpiStats,
-        ...(sectors ? { sectors } : {}),
-      })
-    } catch (error) {
-      if (seq !== allSeq) return
-      set({ error: error instanceof Error ? error.message : 'حدث خطأ في تحميل البيانات' })
-    } finally {
-      if (seq === allSeq) set({ loading: false })
     }
   },
 
@@ -244,7 +285,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ clientDialogOpen: true, editingClient: client }),
 
   setFilter: (patch) => {
-    set({ filters: { ...get().filters, ...patch } })
+    set({ filters: { ...get().filters, ...patch }, requisitionPage: 1 })
     if (Object.prototype.hasOwnProperty.call(patch, 'search')) {
       clearTimeout(searchTimer)
       searchTimer = setTimeout(() => void get().fetchRequisitions(), 300)
@@ -254,7 +295,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetFilters: () => {
-    set({ filters: { ...initialFilters } })
+    set({ filters: { ...initialFilters }, requisitionPage: 1 })
     void get().fetchRequisitions()
   },
 
@@ -305,13 +346,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   createRequisition: async (body) => {
     const requisition = await api.requisitions.create(body)
-    await Promise.all([get().fetchRequisitions(), get().fetchStats()])
+    await get().fetchRequisitions(1)
     return requisition
   },
 
   updateRequisitionStatus: async (id, status, notes) => {
     const updated = await api.requisitions.updateStatus(id, status, notes)
-    await Promise.all([get().fetchRequisitions(), get().fetchStats()])
+    await get().fetchRequisitions()
     if (get().activeRequisition?.id === id) {
       const detail = await api.requisitions.detail(id)
       set({ activeRequisition: detail })
@@ -338,7 +379,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateRequisition: async (id, body) => {
     const updated = await api.requisitions.update(id, body)
-    await Promise.all([get().fetchRequisitions(), get().fetchStats()])
+    await get().fetchRequisitions()
     if (get().activeRequisition?.id === id) {
       set({ activeRequisition: updated })
     }
@@ -349,7 +390,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().activeRequisition?.id === id) {
       set({ activeRequisition: null, drawerOpen: false })
     }
-    await Promise.all([get().fetchRequisitions(), get().fetchStats()])
+    await get().fetchRequisitions()
   },
 
   createClient: async (body) => {

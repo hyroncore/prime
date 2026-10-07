@@ -63,27 +63,20 @@ public class AdminController : ControllerBase
         }
 
         // Table record counts
-        var totalUsers = await _db.Users.CountAsync();
-        var activeUsers = await _db.Users.CountAsync(u => u.IsActive);
-        var totalClients = await _db.Clients.CountAsync();
-        var totalPlants = await _db.Plants.CountAsync();
-        var totalRequisitions = await _db.PurchaseRequisitions.CountAsync();
-        var totalAuditLogs = await _db.RequisitionAuditLogs.CountAsync();
-        var totalAttachments = await _db.RequisitionAttachments.CountAsync();
-        var totalNotifications = await _db.Notifications.CountAsync();
-        var totalPermissions = await _db.Permissions.CountAsync();
-
-        var tableCounts = new TableCountsDto(
-            totalUsers,
-            activeUsers,
-            totalClients,
-            totalPlants,
-            totalRequisitions,
-            totalAuditLogs,
-            totalAttachments,
-            totalNotifications,
-            totalPermissions
-        );
+        var tableCounts = await _db.Database.SqlQueryRaw<TableCountsDto>(
+            """
+            SELECT
+                CAST((SELECT COUNT(*) FROM "Users") AS INTEGER) AS "Users",
+                CAST((SELECT COUNT(*) FROM "Users" WHERE "IsActive" = TRUE) AS INTEGER) AS "ActiveUsers",
+                CAST((SELECT COUNT(*) FROM "Clients") AS INTEGER) AS "Clients",
+                CAST((SELECT COUNT(*) FROM "Plants") AS INTEGER) AS "Plants",
+                CAST((SELECT COUNT(*) FROM "PurchaseRequisitions") AS INTEGER) AS "Requisitions",
+                CAST((SELECT COUNT(*) FROM "RequisitionAuditLogs") AS INTEGER) AS "AuditLogs",
+                CAST((SELECT COUNT(*) FROM "RequisitionAttachments") AS INTEGER) AS "Attachments",
+                CAST((SELECT COUNT(*) FROM "Notifications") AS INTEGER) AS "Notifications",
+                CAST((SELECT COUNT(*) FROM "Permissions") AS INTEGER) AS "Permissions"
+            """)
+            .SingleAsync();
 
         // Determine health status
         var status = dbHealthy

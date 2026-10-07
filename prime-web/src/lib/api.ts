@@ -13,6 +13,7 @@ import type {
   ManagerDashboardStatsDto,
   NotificationsListDto,
   PermissionMatrixDto,
+  PagedResultDto,
   PlantDetailDto,
   RequisitionDto,
   RequisitionStatsDto,
@@ -148,7 +149,9 @@ export const api = {
       to?: string
       page?: number
       pageSize?: number
-    }) => {
+      sortBy?: string
+      sortDirection?: 'asc' | 'desc'
+    }): Promise<PagedResultDto<RequisitionDto>> => {
       const qs = new URLSearchParams()
       if (params?.search) qs.set('search', params.search)
       if (params?.plantId) qs.set('plantId', String(params.plantId))
@@ -158,8 +161,10 @@ export const api = {
       if (params?.to) qs.set('to', params.to)
       if (params?.page) qs.set('page', String(params.page))
       if (params?.pageSize) qs.set('pageSize', String(params.pageSize))
+      if (params?.sortBy) qs.set('sortBy', params.sortBy)
+      if (params?.sortDirection) qs.set('sortDirection', params.sortDirection)
       const query = qs.toString()
-      return request<RequisitionDto[]>(`/requisitions${query ? `?${query}` : ''}`)
+      return request<PagedResultDto<RequisitionDto>>(`/requisitions${query ? `?${query}` : ''}`)
     },
     stats: (params?: {
       search?: string
