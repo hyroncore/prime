@@ -53,6 +53,7 @@ export function RequisitionEditPage() {
 
   const plants = useAppStore((s) => s.plants)
   const sectors = useAppStore((s) => s.sectors)
+  const fetchPlants = useAppStore((s) => s.fetchPlants)
   const updateRequisition = useAppStore((s) => s.updateRequisition)
 
   const { toast } = useToast()
@@ -66,6 +67,7 @@ export function RequisitionEditPage() {
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [optionsError, setOptionsError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -84,6 +86,14 @@ export function RequisitionEditPage() {
       clientNotes: '',
     },
   })
+
+  useEffect(() => {
+    if (plants.length === 0) {
+      void fetchPlants().catch((error: unknown) =>
+        setOptionsError(error instanceof Error ? error.message : 'تعذر تحميل قائمة المصانع.'),
+      )
+    }
+  }, [fetchPlants, plants.length])
 
   useEffect(() => {
     if (!Number.isFinite(requisitionId)) {
@@ -191,6 +201,24 @@ export function RequisitionEditPage() {
           رجوع ←
         </button>
       </div>
+
+      {optionsError && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">{optionsError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setOptionsError(null)
+              void fetchPlants().catch((error: unknown) =>
+                setOptionsError(error instanceof Error ? error.message : 'تعذر تحميل قائمة المصانع.'),
+              )
+            }}
+          >
+            إعادة المحاولة
+          </Button>
+        </div>
+      )}
 
       <Form {...form}>
         <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-8">

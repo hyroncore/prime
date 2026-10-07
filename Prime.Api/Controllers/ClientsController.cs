@@ -12,6 +12,19 @@ namespace Prime.Api.Controllers;
 [Route("api/clients")]
 public class ClientsController : ControllerBase
 {
+    private static readonly List<string> OpenStatuses = new()
+    {
+        nameof(RequisitionStatus.NEW),
+        nameof(RequisitionStatus.REVIEW),
+        nameof(RequisitionStatus.PROCESSING),
+        nameof(RequisitionStatus.MANAGER_REVIEW),
+        nameof(RequisitionStatus.READY_FOR_APPROVAL),
+        nameof(RequisitionStatus.INTERNAL_APPROVAL),
+        nameof(RequisitionStatus.APPROVED),
+        nameof(RequisitionStatus.SUBMITTED),
+        nameof(RequisitionStatus.REVISE)
+    };
+
     private readonly PrimeDbContext _db;
 
     public ClientsController(PrimeDbContext db)
@@ -30,26 +43,19 @@ public class ClientsController : ControllerBase
             .OrderBy(c => c.Name)
             .ToListAsync();
 
-        var requisitions = await _db.PurchaseRequisitions
-            .ToListAsync();
-
-        var openStatuses = new[]
-        {
-            nameof(RequisitionStatus.NEW),
-            nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING),
-            nameof(RequisitionStatus.MANAGER_REVIEW),
-            nameof(RequisitionStatus.READY_FOR_APPROVAL),
-            nameof(RequisitionStatus.INTERNAL_APPROVAL),
-            nameof(RequisitionStatus.APPROVED),
-            nameof(RequisitionStatus.SUBMITTED),
-            nameof(RequisitionStatus.REVISE)
-        };
+        var requisitionCounts = await _db.PurchaseRequisitions
+            .GroupBy(r => r.Plant!.ClientId)
+            .Select(group => new
+            {
+                ClientId = group.Key,
+                Open = group.Count(r => OpenStatuses.Contains(r.Status)),
+                Won = group.Count(r => r.Status == nameof(RequisitionStatus.WON))
+            })
+            .ToDictionaryAsync(count => count.ClientId);
 
         var result = clients.Select(c =>
         {
-            var plantIds = c.Plants.Select(p => p.Id).ToHashSet();
-            var clientRequisitions = requisitions.Where(r => plantIds.Contains(r.PlantId)).ToList();
+            requisitionCounts.TryGetValue(c.Id, out var counts);
 
             return new ClientDto(
                 c.Id,
@@ -64,8 +70,8 @@ public class ClientsController : ControllerBase
                     .ThenBy(p => p.Code)
                     .Select(p => new PlantDto(p.Id, p.ClientId, c.Name, p.Name, p.Code))
                     .ToList(),
-                clientRequisitions.Count(r => openStatuses.Contains(r.Status)),
-                clientRequisitions.Count(r => r.Status == nameof(RequisitionStatus.WON)));
+                counts?.Open ?? 0,
+                counts?.Won ?? 0);
         }).ToList();
 
         return Ok(result);

@@ -11,6 +11,19 @@ namespace Prime.Api.Controllers;
 [Route("api/plants")]
 public class PlantsController : ControllerBase
 {
+    private static readonly List<string> OpenStatuses = new()
+    {
+        nameof(RequisitionStatus.NEW),
+        nameof(RequisitionStatus.REVIEW),
+        nameof(RequisitionStatus.PROCESSING),
+        nameof(RequisitionStatus.MANAGER_REVIEW),
+        nameof(RequisitionStatus.READY_FOR_APPROVAL),
+        nameof(RequisitionStatus.INTERNAL_APPROVAL),
+        nameof(RequisitionStatus.APPROVED),
+        nameof(RequisitionStatus.SUBMITTED),
+        nameof(RequisitionStatus.REVISE)
+    };
+
     private readonly PrimeDbContext _db;
 
     public PlantsController(PrimeDbContext db)
@@ -31,27 +44,23 @@ public class PlantsController : ControllerBase
             .ThenBy(p => p.Code)
             .ToListAsync();
 
-        var requisitions = await _db.PurchaseRequisitions
-            .ToListAsync();
-
-        var openStatuses = new[]
-        {
-            nameof(RequisitionStatus.NEW),
-            nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING),
-            nameof(RequisitionStatus.MANAGER_REVIEW),
-            nameof(RequisitionStatus.READY_FOR_APPROVAL),
-            nameof(RequisitionStatus.INTERNAL_APPROVAL),
-            nameof(RequisitionStatus.APPROVED),
-            nameof(RequisitionStatus.SUBMITTED),
-            nameof(RequisitionStatus.REVISE)
-        };
+        var requisitionCounts = await _db.PurchaseRequisitions
+            .GroupBy(r => r.PlantId)
+            .Select(group => new
+            {
+                PlantId = group.Key,
+                Total = group.Count(),
+                Open = group.Count(r => OpenStatuses.Contains(r.Status)),
+                Won = group.Count(r => r.Status == nameof(RequisitionStatus.WON)),
+                Lost = group.Count(r => r.Status == nameof(RequisitionStatus.LOST))
+            })
+            .ToDictionaryAsync(count => count.PlantId);
 
         var result = plants.Select(p =>
         {
-            var plantReqs = requisitions.Where(r => r.PlantId == p.Id).ToList();
-            var wonCount = plantReqs.Count(r => r.Status == nameof(RequisitionStatus.WON));
-            var lostCount = plantReqs.Count(r => r.Status == nameof(RequisitionStatus.LOST));
+            requisitionCounts.TryGetValue(p.Id, out var counts);
+            var wonCount = counts?.Won ?? 0;
+            var lostCount = counts?.Lost ?? 0;
             var decided = wonCount + lostCount;
 
             return new PlantDetailDto(
@@ -62,8 +71,8 @@ public class PlantsController : ControllerBase
                 p.Client?.Name ?? "—",
                 p.Client?.PrimaryContactName,
                 p.Client?.PrimaryContactPhone,
-                plantReqs.Count(r => openStatuses.Contains(r.Status)),
-                plantReqs.Count,
+                counts?.Open ?? 0,
+                counts?.Total ?? 0,
                 wonCount,
                 lostCount,
                 decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1));
@@ -83,25 +92,20 @@ public class PlantsController : ControllerBase
 
         if (p == null) return NotFound();
 
-        var requisitions = await _db.PurchaseRequisitions
+        var counts = await _db.PurchaseRequisitions
             .Where(r => r.PlantId == id)
-            .ToListAsync();
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Total = group.Count(),
+                Open = group.Count(r => OpenStatuses.Contains(r.Status)),
+                Won = group.Count(r => r.Status == nameof(RequisitionStatus.WON)),
+                Lost = group.Count(r => r.Status == nameof(RequisitionStatus.LOST))
+            })
+            .FirstOrDefaultAsync();
 
-        var openStatuses = new[]
-        {
-            nameof(RequisitionStatus.NEW),
-            nameof(RequisitionStatus.REVIEW),
-            nameof(RequisitionStatus.PROCESSING),
-            nameof(RequisitionStatus.MANAGER_REVIEW),
-            nameof(RequisitionStatus.READY_FOR_APPROVAL),
-            nameof(RequisitionStatus.INTERNAL_APPROVAL),
-            nameof(RequisitionStatus.APPROVED),
-            nameof(RequisitionStatus.SUBMITTED),
-            nameof(RequisitionStatus.REVISE)
-        };
-
-        var wonCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.WON));
-        var lostCount = requisitions.Count(r => r.Status == nameof(RequisitionStatus.LOST));
+        var wonCount = counts?.Won ?? 0;
+        var lostCount = counts?.Lost ?? 0;
         var decided = wonCount + lostCount;
 
         return Ok(new PlantDetailDto(
@@ -112,8 +116,8 @@ public class PlantsController : ControllerBase
             p.Client?.Name ?? "—",
             p.Client?.PrimaryContactName,
             p.Client?.PrimaryContactPhone,
-            requisitions.Count(r => openStatuses.Contains(r.Status)),
-            requisitions.Count,
+            counts?.Open ?? 0,
+            counts?.Total ?? 0,
             wonCount,
             lostCount,
             decided == 0 ? 0 : Math.Round((double)wonCount / decided * 100, 1)));

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { ar } from 'date-fns/locale'
@@ -59,15 +59,25 @@ export function NewRequisitionPage() {
   const navigate = useNavigate()
   const plants = useAppStore((s) => s.plants)
   const sectors = useAppStore((s) => s.sectors)
+  const fetchPlants = useAppStore((s) => s.fetchPlants)
   const createRequisition = useAppStore((s) => s.createRequisition)
   const openDrawer = useAppStore((s) => s.openDrawer)
 
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [optionsError, setOptionsError] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [fileErrors, setFileErrors] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (plants.length === 0) {
+      void fetchPlants().catch((error: unknown) =>
+        setOptionsError(error instanceof Error ? error.message : 'تعذر تحميل قائمة المصانع.'),
+      )
+    }
+  }, [fetchPlants, plants.length])
 
   const handleFiles = (files: File[]) => {
     const errors: string[] = []
@@ -162,6 +172,24 @@ export function NewRequisitionPage() {
           </p>
         </div>
       </header>
+
+      {optionsError && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">{optionsError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setOptionsError(null)
+              void fetchPlants().catch((error: unknown) =>
+                setOptionsError(error instanceof Error ? error.message : 'تعذر تحميل قائمة المصانع.'),
+              )
+            }}
+          >
+            إعادة المحاولة
+          </Button>
+        </div>
+      )}
 
       <Form {...form}>
         <form

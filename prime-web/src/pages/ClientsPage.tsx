@@ -28,7 +28,7 @@ export function ClientsPage() {
   const navigate = useNavigate()
   const plants = useAppStore((state) => state.plants)
   const clients = useAppStore((state) => state.clients)
-  const loading = useAppStore((state) => state.loading)
+  const loading = useAppStore((state) => state.clientsLoading || state.plantsLoading)
   const openPlantDialog = useAppStore((state) => state.openPlantDialog)
   const openClientDialog = useAppStore((state) => state.openClientDialog)
   const openClientEditDialog = useAppStore((state) => state.openClientEditDialog)
@@ -40,11 +40,6 @@ export function ClientsPage() {
   const isAdmin = role === 'Admin'
   const canManagePlants = isAdmin || role === 'Manager'
   const { toast } = useToast()
-
-  useEffect(() => {
-    if (clients.length === 0) void fetchClients()
-    if (plants.length === 0) void fetchPlants()
-  }, [clients.length, plants.length, fetchClients, fetchPlants])
 
   const [searchParams, setSearchParams] = useSearchParams()
   const clientParam = searchParams.get('client')
@@ -60,6 +55,20 @@ export function ClientsPage() {
   const [companyDeleteTarget, setCompanyDeleteTarget] = useState<number | null>(null)
   const [deletingCompany, setDeletingCompany] = useState(false)
   const [companyDeleteError, setCompanyDeleteError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (clients.length === 0) {
+      void fetchClients().catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : 'تعذر تحميل الشركات.'),
+      )
+    }
+    if (plants.length === 0) {
+      void fetchPlants().catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : 'تعذر تحميل المصانع.'),
+      )
+    }
+  }, [fetchClients, fetchPlants])
 
   const search = searchTerm.trim().toLocaleLowerCase()
   const filteredPlants = useMemo(() => {
@@ -192,6 +201,31 @@ export function ClientsPage() {
           </Button>
         )}
       </header>
+
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setLoadError(null)
+              if (clients.length === 0) {
+                void fetchClients().catch((error: unknown) =>
+                  setLoadError(error instanceof Error ? error.message : 'تعذر تحميل الشركات.'),
+                )
+              }
+              if (plants.length === 0) {
+                void fetchPlants().catch((error: unknown) =>
+                  setLoadError(error instanceof Error ? error.message : 'تعذر تحميل المصانع.'),
+                )
+              }
+            }}
+          >
+            إعادة المحاولة
+          </Button>
+        </div>
+      )}
 
       <section aria-label="ملخص الشركات والمصانع" className="grid gap-4 sm:grid-cols-3">
         {metrics.map((metric) => (

@@ -40,7 +40,7 @@ public class NotificationsTests : IDisposable
     private async Task<PurchaseRequisition> SeedOpenRequisitionAsync(DateTime? dueDate = null)
     {
         var client = new Client { Name = "جهة اختبار" };
-        var plant = new Plant { PlantName = "مصنع اختبار", ShortCode = "TT", Client = client };
+        var plant = new Plant { Name = "مصنع اختبار", Code = "TT", Client = client };
         client.Plants.Add(plant);
         _db.Clients.Add(client);
         await _db.SaveChangesAsync();
