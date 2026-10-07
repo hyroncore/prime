@@ -208,13 +208,17 @@ export interface UpdateRequisitionRequest {
 
 export interface CreateClientRequest {
   name: string
+  code: string
+  type?: string | null
   primaryContactName?: string | null
   primaryContactPhone?: string | null
-  plants: { plantName: string; shortCode: string }[]
+  plants?: { plantName: string; shortCode: string }[]
 }
 
 export interface UpdateClientRequest {
   name: string
+  code: string
+  type?: string | null
   primaryContactName?: string | null
   primaryContactPhone?: string | null
 }

@@ -26,7 +26,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.Plants)
             .AsQueryable();
 
-        var clients = await query.ToListAsync();
+        var clients = await query
+            .OrderBy(c => c.Name)
+            .ToListAsync();
 
         var requisitions = await _db.PurchaseRequisitions
             .ToListAsync();
@@ -52,12 +54,15 @@ public class ClientsController : ControllerBase
             return new ClientDto(
                 c.Id,
                 c.Name,
+                c.Code,
+                c.Type,
                 c.PrimaryContactName,
                 c.PrimaryContactPhone,
                 c.CreatedAt,
                 c.Plants
-                    .OrderBy(p => p.ShortCode)
-                    .Select(p => new PlantDto(p.Id, p.ClientId, c.Name, p.PlantName, p.ShortCode))
+                    .OrderBy(p => p.Name)
+                    .ThenBy(p => p.Code)
+                    .Select(p => new PlantDto(p.Id, p.ClientId, c.Name, p.Name, p.Code))
                     .ToList(),
                 clientRequisitions.Count(r => openStatuses.Contains(r.Status)),
                 clientRequisitions.Count(r => r.Status == nameof(RequisitionStatus.WON)));
@@ -111,6 +116,8 @@ public class ClientsController : ControllerBase
         var dto = new ClientDto(
             client.Id,
             client.Name,
+            client.Code,
+            client.Type,
             client.PrimaryContactName,
             client.PrimaryContactPhone,
             client.CreatedAt,

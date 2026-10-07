@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useToast } from '@/hooks/use-toast'
 
 export function ClientsPage() {
   const navigate = useNavigate()
@@ -29,6 +30,9 @@ export function ClientsPage() {
   const clients = useAppStore((s) => s.clients)
   const loading = useAppStore((s) => s.loading)
   const openPlantDialog = useAppStore((s) => s.openPlantDialog)
+  const openClientDialog = useAppStore((s) => s.openClientDialog)
+  const openClientEditDialog = useAppStore((s) => s.openClientEditDialog)
+  const deleteClient = useAppStore((s) => s.deleteClient)
   const deletePlant = useAppStore((s) => s.deletePlant)
   const fetchClients = useAppStore((s) => s.fetchClients)
   const fetchPlants = useAppStore((s) => s.fetchPlants)
@@ -36,6 +40,7 @@ export function ClientsPage() {
   const isAdmin = role === 'Admin'
   const isManager = role === 'Manager'
   const canManageClients = isAdmin || isManager
+  const { toast } = useToast()
 
   useEffect(() => {
     if (clients.length === 0) void fetchClients()
@@ -53,18 +58,30 @@ export function ClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [companyDeleteTarget, setCompanyDeleteTarget] = useState<number | null>(null)
+  const [deletingCompany, setDeletingCompany] = useState(false)
+  const [companyDeleteError, setCompanyDeleteError] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const clientPlants = clientFilter ? plants.filter((p) => p.clientId === clientFilter.id) : plants
     const term = searchTerm.trim()
-    if (!term) return clientPlants
-    return clientPlants.filter(
+    const matchingPlants = !term ? clientPlants : clientPlants.filter(
       (p) =>
         p.plantName.includes(term) ||
         p.shortCode.toLowerCase().includes(term.toLowerCase()) ||
         p.clientName.includes(term)
     )
+    return [...matchingPlants].sort((a, b) =>
+      a.clientName.localeCompare(b.clientName, 'ar') ||
+      a.plantName.localeCompare(b.plantName, 'ar') ||
+      a.shortCode.localeCompare(b.shortCode, 'ar'),
+    )
   }, [plants, clientFilter, searchTerm])
+
+  const orderedCompanies = useMemo(
+    () => [...clients].sort((a, b) => a.name.localeCompare(b.name, 'ar')),
+    [clients],
+  )
 
   const kpis = useMemo(() => {
     const scope = clientFilter ? plants.filter((p) => p.clientId === clientFilter.id) : plants
@@ -101,7 +118,23 @@ export function ClientsPage() {
     }
   }
 
+  const handleDeleteCompany = async () => {
+    if (companyDeleteTarget == null) return
+    setDeletingCompany(true)
+    setCompanyDeleteError(null)
+    try {
+      await deleteClient(companyDeleteTarget)
+      setCompanyDeleteTarget(null)
+      toast({ title: 'تم حذف الشركة بنجاح' })
+    } catch (err) {
+      setCompanyDeleteError(err instanceof Error ? err.message : 'تعذر حذف الشركة.')
+    } finally {
+      setDeletingCompany(false)
+    }
+  }
+
   const deleteName = plants.find((p) => p.id === deleteTarget)?.plantName ?? ''
+  const companyDeleteName = clients.find((client) => client.id === companyDeleteTarget)?.name ?? ''
 
   if (loading && plants.length === 0) {
     return (
@@ -142,20 +175,100 @@ export function ClientsPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight">العملاء</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            المصانع المتعامل معها والجهة المرتبطة بها لكل عميل
+            الشركات ثم المصانع التابعة لها ورموزها
           </p>
         </div>
-        {canManageClients && (
-          <Button
-            onClick={() => navigate('/clients/new')}
-            className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
-          >
-            إضافة عميل جديد
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {isAdmin && (
+            <Button type="button" variant="outline" onClick={openClientDialog} className="h-11 text-xs font-bold">
+              إضافة شركة
+            </Button>
+          )}
+          {canManageClients && (
+            <Button
+              onClick={() => navigate('/clients/new')}
+              className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
+            >
+              إضافة مصنع
+            </Button>
+          )}
+        </div>
       </header>
 
-      <section aria-label="ملخص العملاء" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {isAdmin && (
+        <section aria-labelledby="companies-heading" className="space-y-3">
+          <header className="flex items-baseline justify-between gap-3">
+            <div>
+              <h2 id="companies-heading" className="text-sm font-black">الشركات</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                كل شركة تجمع المصانع والعملاء والطلبات التابعة لها.
+              </p>
+            </div>
+            <span className="text-xs font-bold tabular-nums text-muted-foreground">
+              {orderedCompanies.length}
+            </span>
+          </header>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-5">الشركة</TableHead>
+                  <TableHead className="px-5">الكود</TableHead>
+                  <TableHead className="px-5 text-center">المصانع</TableHead>
+                  <TableHead className="px-5">مسؤول التواصل</TableHead>
+                  <TableHead className="px-5 text-center">الإجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orderedCompanies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="px-5 py-3.5 font-bold">{company.name}</TableCell>
+                    <TableCell className="px-5 py-3.5 font-mono text-xs" dir="ltr">
+                      {company.code}
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5 text-center tabular-nums">
+                      {company.plants.length}
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5 text-sm">
+                      {company.primaryContactName ?? '—'}
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5 text-center">
+                      <div className="flex justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => openClientEditDialog(company)}
+                          className="min-h-11 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCompanyDeleteTarget(company.id)
+                            setCompanyDeleteError(null)
+                          }}
+                          className="min-h-11 px-2 text-xs font-semibold text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {orderedCompanies.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                      لا توجد شركات بعد. أضف شركة قبل تسجيل المصانع التابعة لها.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </section>
+      )}
+
+      <section aria-label="ملخص المصانع" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {kpis.map((stat) => (
           <Card key={stat.title} className="p-5">
             <p className="text-xs font-bold tracking-wide text-muted-foreground">
@@ -172,7 +285,7 @@ export function ClientsPage() {
       {clientFilter && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
           <p className="text-xs font-bold">
-            عرض عملاء الجهة: <span className="text-primary">{clientFilter.name}</span>
+            عرض مصانع الشركة: <span className="text-primary">{clientFilter.name}</span>
           </p>
           <button
             onClick={() => setSearchParams({})}
@@ -185,11 +298,11 @@ export function ClientsPage() {
 
       <div className="space-y-2">
         <label htmlFor="client-search" className="text-sm font-bold">
-          البحث في العملاء
+          البحث في المصانع
         </label>
         <Input
           id="client-search"
-          placeholder="بحث بالاسم أو الرمز أو الجهة..."
+          placeholder="بحث باسم الشركة أو المصنع أو الكود..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="h-11 w-full max-w-md text-sm"
@@ -199,19 +312,19 @@ export function ClientsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <p className="text-base font-black text-foreground">
-            {clientFilter || searchTerm.trim() ? 'لا توجد نتائج مطابقة' : 'لا يوجد عملاء بعد'}
+            {clientFilter || searchTerm.trim() ? 'لا توجد نتائج مطابقة' : 'لا توجد مصانع بعد'}
           </p>
           <p className="max-w-sm text-sm text-muted-foreground">
             {clientFilter || searchTerm.trim()
               ? 'جرّب تعديل البحث أو إزالة تصفية الجهة'
-              : 'أضف أول عميل لبدء تسجيل طلبات الشراء الخاصة به'}
+              : 'أضف شركة ثم سجّل المصانع التابعة لها لبدء تسجيل طلبات الشراء'}
           </p>
           {(!clientFilter && !searchTerm.trim() && canManageClients) && (
             <Button
               onClick={() => navigate('/clients/new')}
               className="h-11 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90"
             >
-              إضافة عميل جديد
+              إضافة مصنع
             </Button>
           )}
           {(clientFilter || searchTerm.trim()) && (
@@ -229,14 +342,17 @@ export function ClientsPage() {
       ) : (
         <Card className="overflow-hidden">
           <Table className="min-w-[760px]">
-            <caption className="sr-only">قائمة العملاء والجهات وعدد طلبات الشراء المرتبطة</caption>
+            <caption className="sr-only">قائمة المصانع مرتبة حسب الشركة ثم اسم المصنع والكود</caption>
             <TableHeader>
               <TableRow className="border-b border-border hover:bg-transparent">
                 <TableHead scope="col" className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
-                  العميل
+                  الشركة
                 </TableHead>
                 <TableHead scope="col" className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
-                  الجهة / الشركة
+                  المصنع
+                </TableHead>
+                <TableHead scope="col" className="px-5 text-[11px] font-bold text-muted-foreground tracking-wide">
+                  الكود
                 </TableHead>
                 <TableHead scope="col" className="px-5 text-center text-[11px] font-bold text-muted-foreground tracking-wide">
                   الطلبات المفتوحة
@@ -253,13 +369,13 @@ export function ClientsPage() {
               {filtered.map((plant) => (
                 <TableRow key={plant.id}>
                   <TableCell className="px-5 py-3.5">
-                    <span className="text-sm font-bold">{plant.plantName}</span>
-                    <span className="ms-2 font-mono text-[11px] font-bold text-muted-foreground" dir="ltr">
-                      {plant.shortCode}
-                    </span>
+                    <span className="text-sm font-semibold">{plant.clientName}</span>
                   </TableCell>
                   <TableCell className="px-5 py-3.5">
-                    <span className="text-sm font-semibold">{plant.clientName}</span>
+                    <span className="text-sm font-bold">{plant.plantName}</span>
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 font-mono text-xs" dir="ltr">
+                    {plant.shortCode}
                   </TableCell>
                   <TableCell className="px-5 py-3.5 text-center">
                     <span className="text-sm font-black tabular-nums text-primary">
@@ -326,6 +442,40 @@ export function ClientsPage() {
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleting}
+              className="w-full text-xs font-semibold"
+            >
+              إلغاء
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={companyDeleteTarget != null}
+        onOpenChange={(open) => !open && setCompanyDeleteTarget(null)}
+      >
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black">حذف الشركة</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              هل تريد حذف الشركة «{companyDeleteName}»؟ لا يمكن حذفها ما دامت مرتبطة بمصانع.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {companyDeleteError && (
+            <p role="alert" className="text-sm text-destructive">{companyDeleteError}</p>
+          )}
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="w-full text-xs font-bold"
+              disabled={deletingCompany}
+              onClick={() => void handleDeleteCompany()}
+            >
+              {deletingCompany ? 'جارٍ الحذف...' : 'حذف الشركة'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCompanyDeleteTarget(null)}
+              disabled={deletingCompany}
               className="w-full text-xs font-semibold"
             >
               إلغاء

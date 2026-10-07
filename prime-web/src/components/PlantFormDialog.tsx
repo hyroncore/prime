@@ -20,15 +20,15 @@ import { useToast } from '@/hooks/use-toast'
 import { useArrowFieldNavigation } from '@/hooks/useArrowFieldNavigation'
 import { useAppStore } from '@/store/useAppStore'
 import { useAuthStore } from '@/store/useAuthStore'
-import { api } from '@/lib/api'
 
 export function PlantFormDialog() {
   const open = useAppStore((s) => s.plantDialogOpen)
   const close = useAppStore((s) => s.closePlantDialog)
   const editingPlant = useAppStore((s) => s.editingPlant)
   const updatePlant = useAppStore((s) => s.updatePlant)
+  const createClient = useAppStore((s) => s.createClient)
   const clients = useAppStore((s) => s.clients)
-  useAuthStore((s) => s.user?.role)
+  const isAdmin = useAuthStore((s) => s.user?.role === 'Admin')
   const contentRef = useRef<HTMLDivElement>(null)
   useArrowFieldNavigation(contentRef, open)
 
@@ -43,6 +43,7 @@ export function PlantFormDialog() {
   // Inline client creation state
   const [showClientDialog, setShowClientDialog] = useState(false)
   const [newClientName, setNewClientName] = useState('')
+  const [newClientCode, setNewClientCode] = useState('')
   const [creatingClient, setCreatingClient] = useState(false)
   const [clientError, setClientError] = useState<string | null>(null)
 
@@ -98,19 +99,24 @@ export function PlantFormDialog() {
       setClientError('اسم الجهة مطلوب')
       return
     }
+    if (!newClientCode.trim()) {
+      setClientError('كود الشركة مطلوب')
+      return
+    }
 
     setCreatingClient(true)
     setClientError(null)
     try {
-      const newClient = await api.clients.create({
+      const newClient = await createClient({
         name: newClientName.trim(),
+        code: newClientCode.trim().toUpperCase(),
         primaryContactName: null,
         primaryContactPhone: null,
-        plants: [],
       })
       setClientId(String(newClient.id))
       setShowClientDialog(false)
       setNewClientName('')
+      setNewClientCode('')
       toast({
         title: 'تم إنشاء الجهة بنجاح',
         className:
@@ -165,7 +171,16 @@ export function PlantFormDialog() {
                   </p>
                 ) : (
                   <div>
-                    <Select value={clientId} onValueChange={setClientId}>
+                    <Select
+                      value={clientId}
+                      onValueChange={(value) => {
+                        if (value === '__create_new__') {
+                          setShowClientDialog(true)
+                          return
+                        }
+                        setClientId(value)
+                      }}
+                    >
                       <SelectTrigger className="w-full text-sm flex-1">
                         <SelectValue placeholder="اختر الجهة" />
                       </SelectTrigger>
@@ -175,21 +190,25 @@ export function PlantFormDialog() {
                             {client.name} {client.code && `(${client.code})`}
                           </SelectItem>
                         ))}
-                        <SelectItem value="__create_new__">
-                          + إنشاء جهة جديدة
-                        </SelectItem>
+                        {isAdmin && (
+                          <SelectItem value="__create_new__">
+                            + إنشاء شركة جديدة
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowClientDialog(true)}
-                      className="h-9"
-                      aria-label="إنشاء جهة جديدة"
-                    >
-                      <span className="text-lg">+</span>
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowClientDialog(true)}
+                        className="h-9"
+                        aria-label="إنشاء شركة جديدة"
+                      >
+                        <span className="text-lg">+</span>
+                      </Button>
+                    )}
                   </div>
               )}
             </div>
@@ -226,19 +245,29 @@ export function PlantFormDialog() {
     <Dialog open={showClientDialog} onOpenChange={(o) => !o && setShowClientDialog(false)}>
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-sm font-black">إضافة جهة جديدة</DialogTitle>
+          <DialogTitle className="text-sm font-black">إضافة شركة جديدة</DialogTitle>
           <DialogDescription className="text-xs">
-            أضف جهة/شركة جديدة سيتم ربطها بهذا العميل. ستكون متاحة لجميع الشركات.
+            أضف شركة لتكون الجهة الأم لهذا المصنع.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>اسم الجهة</Label>
+            <Label>اسم الشركة</Label>
             <Input
               value={newClientName}
               onChange={(e) => setNewClientName(e.target.value)}
-              placeholder="مثال: الشركة الأهلية للأسمنت"
+              placeholder="مثال: الشركة الأهلية"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>كود الشركة</Label>
+            <Input
+              value={newClientCode}
+              onChange={(e) => setNewClientCode(e.target.value)}
+              placeholder="مثال: ACME"
+              dir="ltr"
               className="h-9 text-sm"
             />
           </div>
@@ -253,10 +282,10 @@ export function PlantFormDialog() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={handleCreateClient}
-            disabled={creatingClient || !newClientName.trim()}
+            disabled={creatingClient || !newClientName.trim() || !newClientCode.trim()}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
           >
-            {creatingClient ? 'جارٍ الإنشاء...' : 'إنشاء الجهة'}
+            {creatingClient ? 'جارٍ الإنشاء...' : 'إنشاء الشركة'}
           </Button>
           <Button
             variant="outline"

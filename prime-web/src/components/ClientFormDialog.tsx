@@ -25,6 +25,7 @@ export function ClientFormDialog() {
   const { toast } = useToast()
 
   const [name, setName] = useState('')
+  const [code, setCode] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -33,6 +34,7 @@ export function ClientFormDialog() {
   useEffect(() => {
     if (open) {
       setName(editingClient?.name ?? '')
+      setCode(editingClient?.code ?? '')
       setContactName(editingClient?.primaryContactName ?? '')
       setContactPhone(editingClient?.primaryContactPhone ?? '')
       setError(null)
@@ -41,7 +43,11 @@ export function ClientFormDialog() {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError('اسم الجهة مطلوب')
+      setError('اسم الشركة مطلوب')
+      return
+    }
+    if (!code.trim()) {
+      setError('كود الشركة مطلوب')
       return
     }
 
@@ -50,17 +56,19 @@ export function ClientFormDialog() {
     try {
       const body = {
         name: name.trim(),
+        code: code.trim().toUpperCase(),
+        type: editingClient?.type ?? null,
         primaryContactName: contactName.trim() || null,
         primaryContactPhone: contactPhone.trim() || null,
       }
       if (editingClient) {
         await updateClient(editingClient.id, body)
       } else {
-        await createClient({ ...body, plants: [] })
+        await createClient(body)
       }
       close()
       toast({
-        title: editingClient ? 'تم تعديل الجهة بنجاح' : 'تمت إضافة الجهة بنجاح',
+        title: editingClient ? 'تم تعديل الشركة بنجاح' : 'تمت إضافة الشركة بنجاح',
         className:
           'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/60 dark:text-green-300',
       })
@@ -76,20 +84,31 @@ export function ClientFormDialog() {
       <DialogContent ref={contentRef} className="max-w-sm" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-sm font-black">
-            {editingClient ? 'تعديل الجهة' : 'إضافة جهة جديدة'}
+            {editingClient ? 'تعديل الشركة' : 'إضافة شركة جديدة'}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            تُستخدم الجهات المرتبطة بالعملاء عند إضافة أو تعديل عميل
+            الشركة هي الجهة الأم للمصانع والعملاء والطلبات المرتبطة بها.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>اسم الجهة / الشركة</Label>
+            <Label>اسم الشركة</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="مثال: الشركة الأهلية للأسمنت"
+              placeholder="مثال: الشركة الأهلية"
+              className="h-9 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>كود الشركة</Label>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="مثال: ACME"
+              dir="ltr"
               className="h-9 text-sm"
             />
           </div>
@@ -128,7 +147,7 @@ export function ClientFormDialog() {
             disabled={submitting}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
           >
-            {submitting ? 'جارٍ الحفظ...' : editingClient ? 'حفظ التعديلات' : 'حفظ الجهة'}
+            {submitting ? 'جارٍ الحفظ...' : editingClient ? 'حفظ التعديلات' : 'حفظ الشركة'}
           </Button>
           <Button
             variant="outline"

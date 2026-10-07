@@ -105,6 +105,52 @@ export function ClientForm() {
         >
           <FormField
             control={form.control}
+            name="clientId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-bold text-foreground">
+                  {CLIENT_FORM_TEXT.linkedClient}
+                </FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={clients.length === 0}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      onBlur={field.onBlur}
+                      className="h-11 w-full focus-visible:ring-2 focus-visible:ring-primary/40"
+                    >
+                      <SelectValue placeholder={CLIENT_FORM_TEXT.linkedClientPlaceholder} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {[...clients]
+                      .sort((a, b) => a.name.localeCompare(b.name, 'ar'))
+                      .map((client) => (
+                        <SelectItem key={client.id} value={String(client.id)}>
+                          {client.name} ({client.code})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {clients.length === 0 && !clientsError && (
+                  <FormDescription className="text-xs">
+                    <Link to="/clients" className="text-primary underline underline-offset-4">
+                      {CLIENT_FORM_TEXT.noClients}
+                    </Link>
+                  </FormDescription>
+                )}
+                {clientsError && (
+                  <p role="alert" className="text-xs text-destructive">{clientsError}</p>
+                )}
+                <FormMessage role="alert" className="text-xs" />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="plantName"
             render={({ field }) => (
               <FormItem>
@@ -141,50 +187,6 @@ export function ClientForm() {
                     className="h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary/40"
                   />
                 </FormControl>
-                <FormMessage role="alert" className="text-xs" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="clientId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm font-bold text-foreground">
-                  {CLIENT_FORM_TEXT.linkedClient}
-                </FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={clients.length === 0}
-                >
-                  <FormControl>
-                    <SelectTrigger
-                      onBlur={field.onBlur}
-                      className="h-11 w-full focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                      <SelectValue placeholder={CLIENT_FORM_TEXT.linkedClientPlaceholder} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={String(client.id)}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {clients.length === 0 && !clientsError && (
-                  <FormDescription className="text-xs">
-                    <Link to="/settings" className="text-primary underline underline-offset-4">
-                      {CLIENT_FORM_TEXT.noClients}
-                    </Link>
-                  </FormDescription>
-                )}
-                {clientsError && (
-                  <p role="alert" className="text-xs text-destructive">{clientsError}</p>
-                )}
                 <FormMessage role="alert" className="text-xs" />
               </FormItem>
             )}

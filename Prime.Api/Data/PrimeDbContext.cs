@@ -39,9 +39,9 @@ public class PrimeDbContext : DbContext
 
         modelBuilder.Entity<Plant>(entity =>
         {
-            entity.Property(p => p.PlantName).IsRequired();
-            entity.Property(p => p.ShortCode).IsRequired();
-            entity.HasIndex(p => p.ShortCode).IsUnique();
+            entity.Property(p => p.Name).IsRequired();
+            entity.Property(p => p.Code).IsRequired();
+            entity.HasIndex(p => p.Code).IsUnique();
             entity.HasOne(p => p.Client)
                   .WithMany(c => c.Plants)
                   .HasForeignKey(p => p.ClientId)

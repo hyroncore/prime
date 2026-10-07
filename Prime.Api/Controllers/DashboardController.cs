@@ -76,7 +76,7 @@ public class DashboardController : ControllerBase
                 r.Identifier,
                 r.Title,
                 r.Plant?.Client?.Name ?? "—",
-                r.Plant?.PlantName ?? "—",
+                r.Plant?.Name ?? "—",
                 r.DueDate,
                 r.Status,
                 (int)Math.Ceiling((r.DueDate - now).TotalDays)))
@@ -220,7 +220,7 @@ public class DashboardController : ControllerBase
                     r.Identifier,
                     r.Title,
                     r.Plant?.Client?.Name ?? "—",
-                    r.Plant?.PlantName ?? "—",
+                    r.Plant?.Name ?? "—",
                     r.DueDate,
                     r.Status,
                     (int)Math.Ceiling((r.DueDate - now).TotalDays)))
@@ -380,8 +380,8 @@ public class DashboardController : ControllerBase
                 .Where(r => r.Status == "REVIEW" || r.Status == "MANAGER_REVIEW")
                 .Select(r => new UrgentRequisitionDto(
                     r.Id, r.Identifier, r.Title, 
-                    r.Plant?.Client?.Name ?? "—", r.Plant?.PlantName ?? "—", 
-                    r.DueDate, r.Status, 
+                    r.Plant?.Client?.Name ?? "—", r.Plant?.Name ?? "—",
+                    r.DueDate, r.Status,
                     (int)Math.Ceiling((r.DueDate - now).TotalDays)))
                 .OrderBy(r => r.DueDate)
                 .ToList();
@@ -390,7 +390,7 @@ public class DashboardController : ControllerBase
                 .Where(r => r.Status == "INTERNAL_APPROVAL")
                 .Select(r => new PendingSignOffDto(
                     r.Id, r.Identifier, r.Title, 
-                    r.Plant?.PlantName ?? "—", r.Plant?.Client?.Name ?? "—", 
+                    r.Plant?.Name ?? "—", r.Plant?.Client?.Name ?? "—",
                     r.AuditLogs
                         .Where(a => a.Action == "InternalApprovalRequested")
                         .OrderByDescending(a => a.CreatedAt)

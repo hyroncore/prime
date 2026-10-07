@@ -25,7 +25,11 @@ public class PlantsController : ControllerBase
             .Include(p => p.Client)
             .AsQueryable();
 
-        var plants = await query.ToListAsync();
+        var plants = await query
+            .OrderBy(p => p.Client!.Name)
+            .ThenBy(p => p.Name)
+            .ThenBy(p => p.Code)
+            .ToListAsync();
 
         var requisitions = await _db.PurchaseRequisitions
             .ToListAsync();
@@ -52,8 +56,8 @@ public class PlantsController : ControllerBase
 
             return new PlantDetailDto(
                 p.Id,
-                p.PlantName,
-                p.ShortCode,
+                p.Name,
+                p.Code,
                 p.ClientId,
                 p.Client?.Name ?? "—",
                 p.Client?.PrimaryContactName,
@@ -102,8 +106,8 @@ public class PlantsController : ControllerBase
 
         return Ok(new PlantDetailDto(
             p.Id,
-            p.PlantName,
-            p.ShortCode,
+            p.Name,
+            p.Code,
             p.ClientId,
             p.Client?.Name ?? "—",
             p.Client?.PrimaryContactName,
@@ -124,7 +128,7 @@ public class PlantsController : ControllerBase
         }
 
         var shortCode = request.ShortCode.Trim().ToUpperInvariant();
-        if (await _db.Plants.AnyAsync(p => p.ShortCode == shortCode))
+        if (await _db.Plants.AnyAsync(p => p.Code == shortCode))
         {
             return BadRequest(new { message = $"الرمز المختصر '{shortCode}' مستخدم مسبقاً." });
         }
@@ -136,8 +140,8 @@ public class PlantsController : ControllerBase
 
         var plant = new Plant
         {
-            PlantName = request.PlantName.Trim(),
-            ShortCode = shortCode,
+            Name = request.PlantName.Trim(),
+            Code = shortCode,
             ClientId = request.ClientId
         };
 
@@ -161,7 +165,7 @@ public class PlantsController : ControllerBase
         }
 
         var shortCode = request.ShortCode.Trim().ToUpperInvariant();
-        if (await _db.Plants.AnyAsync(p => p.ShortCode == shortCode && p.Id != id))
+        if (await _db.Plants.AnyAsync(p => p.Code == shortCode && p.Id != id))
         {
             return BadRequest(new { message = $"الرمز المختصر '{shortCode}' مستخدم مسبقاً." });
         }
@@ -171,8 +175,8 @@ public class PlantsController : ControllerBase
             return BadRequest(new { message = "الجهة غير موجودة." });
         }
 
-        plant.PlantName = request.PlantName.Trim();
-        plant.ShortCode = shortCode;
+        plant.Name = request.PlantName.Trim();
+        plant.Code = shortCode;
         plant.ClientId = request.ClientId;
         await _db.SaveChangesAsync();
 

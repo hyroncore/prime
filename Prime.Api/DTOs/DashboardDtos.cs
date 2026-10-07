@@ -34,6 +34,8 @@ public record PlantDetailDto(
 public record ClientDto(
     int Id,
     string Name,
+    string Code,
+    string? Type,
     string? PrimaryContactName,
     string? PrimaryContactPhone,
     DateTime CreatedAt,

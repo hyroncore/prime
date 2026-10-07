@@ -11,10 +11,10 @@ public class Plant
     public Client? Client { get; set; }
 
     [Required]
-    public string PlantName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     [Required]
-    public string ShortCode { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
 
-    public List<PurchaseRequisition> Requisitions { get; set; } = new();
+    public ICollection<PurchaseRequisition> Requisitions { get; set; } = new List<PurchaseRequisition>();
 }
