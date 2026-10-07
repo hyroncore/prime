@@ -195,7 +195,7 @@ public class RequisitionsController : ControllerBase
 
         var (identifier, _) = await RequisitionCodeGenerator.NextIdentifierAsync(
             _db,
-            plant.ShortCode,
+            plant.Code,
             request.SectorCode);
 
         var requisition = new PurchaseRequisition
@@ -783,7 +783,7 @@ public class RequisitionsController : ControllerBase
         {
             var (identifier, _) = await RequisitionCodeGenerator.NextIdentifierAsync(
                 _db,
-                plant.ShortCode,
+                plant.Code,
                 request.SectorCode);
             requisition.Identifier = identifier;
         }
@@ -886,8 +886,8 @@ public class RequisitionsController : ControllerBase
         r.Identifier,
         r.ExternalRef,
         r.PlantId,
-        r.Plant?.PlantName ?? string.Empty,
-        r.Plant?.ShortCode ?? string.Empty,
+        r.Plant?.Name ?? string.Empty,
+        r.Plant?.Code ?? string.Empty,
         r.Plant?.ClientId ?? 0,
         r.Plant?.Client?.Name ?? string.Empty,
         r.SectorCode,

@@ -88,8 +88,8 @@ public class DatabaseBackupService
                 {
                     p.Id,
                     p.ClientId,
-                    p.PlantName,
-                    p.ShortCode
+                    p.Name,
+                    p.Code
                 })
                 .ToListAsync(ct), ct);
 

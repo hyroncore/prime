@@ -16,10 +16,10 @@ public record UpdateStatusRequest(
 public record CreateClientRequest(
     string Name,
     string Code,
-    string? Type,
-    string? PrimaryContactName,
-    string? PrimaryContactPhone,
-    List<CreatePlantRequest> Plants);
+    string? Type = null,
+    string? PrimaryContactName = null,
+    string? PrimaryContactPhone = null,
+    List<CreatePlantRequest>? Plants = null);
 
 public record CreatePlantRequest(
     string PlantName,
